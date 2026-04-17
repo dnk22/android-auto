@@ -423,17 +423,19 @@ export default function H264Decoder({
   }, [serial, streamKind, connectionState]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className={`block h-full w-full rounded-2xl bg-[#0f172a] ${className}`}
-      data-serial={serial}
-      data-stream-type={streamKind}
-      data-interactive={interactive ? "true" : "false"}
-      onPointerDown={interactive ? (event) => onPointerDownRef.current?.(event) : undefined}
-      onPointerMove={interactive ? (event) => onPointerMoveRef.current?.(event) : undefined}
-      onPointerUp={interactive ? (event) => onPointerUpRef.current?.(event) : undefined}
-      onPointerLeave={interactive ? (event) => onPointerLeaveRef.current?.(event) : undefined}
-    />
+    <div className={`flex h-full w-full items-center justify-center overflow-hidden ${className}`}>
+      <canvas
+        ref={canvasRef}
+        className="block max-h-full max-w-full rounded-2xl"
+        data-serial={serial}
+        data-stream-type={streamKind}
+        data-interactive={interactive ? "true" : "false"}
+        onPointerDown={interactive ? (event) => onPointerDownRef.current?.(event) : undefined}
+        onPointerMove={interactive ? (event) => onPointerMoveRef.current?.(event) : undefined}
+        onPointerUp={interactive ? (event) => onPointerUpRef.current?.(event) : undefined}
+        onPointerLeave={interactive ? (event) => onPointerLeaveRef.current?.(event) : undefined}
+      />
+    </div>
   );
 }
 

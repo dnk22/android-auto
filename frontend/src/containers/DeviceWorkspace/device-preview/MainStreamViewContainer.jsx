@@ -58,10 +58,11 @@ export default function MainStreamViewContainer() {
       </div>
 
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-        <div className="group flex max-h-full max-w-full items-center gap-3 overflow-hidden px-1">
+        <div className="group flex h-full max-h-full w-full items-start justify-center overflow-hidden">
+          <div className="h-[164px] w-[52px] shrink-0 opacity-0" aria-hidden="true" />
           <div
             ref={streamShellRef}
-            className="relative h-[80%] max-h-full w-auto max-w-[80%] overflow-hidden rounded-[2rem] border border-[var(--card-border)] bg-[#0f172a] shadow-[0_20px_50px_rgba(2,6,23,0.35)] aspect-[10/19]"
+            className="relative h-full max-h-full w-auto max-w-[calc(100%-64px)] overflow-hidden rounded-[2rem] aspect-[10/19]"
           >
             {activeStreamDevice ? (
               <H264Decoder
@@ -84,13 +85,13 @@ export default function MainStreamViewContainer() {
           </div>
 
           <div className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-white/20 bg-black/60 p-2 backdrop-blur-sm">
+            <div className="flex h-[164px] w-[52px] flex-col items-center justify-center gap-2 rounded-2xl bg-black/60 p-2 backdrop-blur-sm">
               {toolbarButtons.map((button) => (
                 <button
                   key={button.label}
                   type="button"
                   onClick={button.onClick}
-                  className="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white transition hover:bg-white/25"
+                  className="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/25"
                   title={button.label}
                   aria-label={button.label}
                   disabled={!activeStreamDevice}
