@@ -2,19 +2,10 @@ import { useMemo } from "react";
 
 import { useStore } from "../../../../store/useStore.js";
 
-function getBorderClass(state) {
-  if (state === "READY") {
-    return "border-emerald-500";
-  }
-  if (state === "U2_ERROR") {
-    return "border-rose-500";
-  }
-  return "border-white";
-}
-
 export function useDeviceThumbnailStripController() {
   const devices = useStore((state) => state.devices);
   const selectedDevice = useStore((state) => state.selectedDevice);
+  const syncAllDevices = useStore((state) => state.syncAllDevices);
   const setSelectedDevice = useStore((state) => state.setSelectedDevice);
   const setSelectedStreamDevice = useStore(
     (state) => state.setSelectedStreamDevice,
@@ -37,8 +28,8 @@ export function useDeviceThumbnailStripController() {
   return {
     connectedDevices,
     selectedDevice,
+    syncAllDevices,
     onSelectDevice: handleSelectDevice,
-    getBorderClass,
     toggleSyncAllDevices,
   };
 }

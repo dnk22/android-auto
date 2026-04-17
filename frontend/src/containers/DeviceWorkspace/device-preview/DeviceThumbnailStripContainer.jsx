@@ -6,7 +6,6 @@ export default function DeviceThumbnailStripContainer() {
     connectedDevices,
     selectedDevice,
     onSelectDevice,
-    getBorderClass,
     toggleSyncAllDevices,
     syncAllDevices,
   } = useDeviceThumbnailStripController();
@@ -29,7 +28,7 @@ export default function DeviceThumbnailStripContainer() {
           {syncAllDevices ? "Đồng bộ: ON" : "Đồng bộ: OFF"}
         </button>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="flex gap-3 overflow-x-auto p-1">
         {connectedDevices.length === 0 ? (
           <div className="flex h-32 w-full items-center justify-center rounded-2xl border border-dashed border-[var(--card-border)] bg-[var(--panel-soft)] px-4 text-sm text-[var(--muted)]">
             Chưa có thiết bị CONNECTED
@@ -37,16 +36,17 @@ export default function DeviceThumbnailStripContainer() {
         ) : (
           connectedDevices.map((device) => {
             const isActive = device.id === selectedDevice;
-            const borderClass = getBorderClass(device.state);
 
             return (
               <button
                 key={device.id}
                 type="button"
                 onClick={() => onSelectDevice(device.id)}
-                className={`group relative flex h-32 w-24 shrink-0 flex-col overflow-hidden rounded-2xl border-2 p-1 text-left transition ${
-                  isActive ? "scale-[1.02]" : "opacity-90"
-                } ${borderClass}`}
+                className={`group relative flex h-24 w-16 shrink-0 flex-col overflow-hidden rounded-2xl border-2 p-1 text-left transition ${
+                  isActive
+                    ? "scale-[1.06] border-emerald-400 opacity-100"
+                    : "border-slate-500/70 opacity-90"
+                }`}
               >
                 <div className="relative h-full w-full overflow-hidden rounded-xl bg-[#0f172a]">
                   <H264Decoder

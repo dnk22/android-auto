@@ -21,17 +21,31 @@ export class StreamManager {
   }
 
   async broadcastControl(payload) {
-    const targets = [];
+    const sessionBySerial = new Map();
+
     for (const session of this.sessions.values()) {
-      if (session.type === "main") {
-        targets.push(
-          session.handleControl({
-            ...payload,
-            target: "selected",
-          })
-        );
+      const current = sessionBySerial.get(session.serial);
+      if (!current) {
+        sessionBySerial.set(session.serial, session);
+        continue;
+      }
+
+      // Prefer main stream session for controls, fallback to any available session.
+      if (current.type !== "main" && session.type === "main") {
+        sessionBySerial.set(session.serial, session);
       }
     }
+
+    const targets = [];
+    for (const session of sessionBySerial.values()) {
+      targets.push(
+        session.handleControl({
+          ...payload,
+          target: "selected",
+        })
+      );
+    }
+
     await Promise.allSettled(targets);
   }
 
