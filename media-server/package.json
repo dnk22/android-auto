@@ -1,0 +1,16 @@
+{
+  "name": "android-media-server",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@yume-chan/adb": "^2.1.0",
+    "@yume-chan/adb-server-node-tcp": "^2.1.0",
+    "@yume-chan/scrcpy": "^2.1.0",
+    "ws": "^8.18.0"
+  }
+}

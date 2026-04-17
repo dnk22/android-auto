@@ -1,0 +1,4 @@
+fastapi
+uvicorn[standard]
+uiautomator2
+adbutils

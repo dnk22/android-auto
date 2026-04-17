@@ -1,0 +1,46 @@
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Frontend/Build artifacts
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+media-server/dist/
+media-server/coverage/
+
+# Runtime logs
+*.log
+logs/
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# Legacy local storage (no longer persisted)
+storage/devices/

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Test H.264 Stream - JMuxer</title>
+    <script src="https://cdn.jsdelivr.net/npm/jmuxer@1.1.1/dist/jmuxer.min.js"></script>
+    <style>
+        body { background: #111; color: #fff; font-family: sans-serif; text-align: center; padding: 20px; }
+        #video-container { width: 360px; height: 640px; margin: 0 auto; background: #000; border: 2px solid #333; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+        .status { margin: 15px; padding: 10px; border-radius: 5px; display: inline-block; }
+        .on { background: #2e7d32; }
+        .off { background: #c62828; }
+    </style>
+</head>
+<body>
+
+    <h2>H.264 Stream Monitor (JMuxer)</h2>
+    <div id="status" class="status off">🔴 Đang chờ kết nối...</div>
+    
+    <div id="video-container">
+        <video id="player" autoplay muted playsinline></video>
+    </div>
+
+    <p id="debug-info">Đang chờ gói tin dữ liệu...</p>
+
+    <script>
+        const SERIAL = 'emulator-5554'; 
+        const WS_URL = `ws://localhost:3001/stream/${SERIAL}`;
+        const debugInfo = document.getElementById('debug-info');
+        const statusEl = document.getElementById('status');
+
+        // 1. Khởi tạo JMuxer
+        const jmuxer = new JMuxer({
+            node: 'player',
+            mode: 'video', // Chỉ nhận luồng video
+            flushingTime: 0, // Đặt bằng 0 để giảm độ trễ tối đa (low latency)
+            debug: false
+        });
+
+        // 2. Kết nối WebSocket
+        const socket = new WebSocket(WS_URL);
+        socket.binaryType = 'arraybuffer';
+
+        socket.onopen = () => {
+            statusEl.innerText = "✅ Kết nối thành công (H.264)";
+            statusEl.className = "status on";
+            console.log("WebSocket connected");
+        };
+
+        socket.onmessage = (event) => {
+            if (event.data instanceof ArrayBuffer) {
+                const data = new Uint8Array(event.data);
+                
+                // Debug nhanh xem dữ liệu có về không
+                debugInfo.innerText = `Nhận gói tin: ${data.length} bytes`;
+
+                // 3. Đẩy NAL units vào JMuxer
+                jmuxer.feed({
+                    video: data
+                });
+            }
+        };
+
+        socket.onerror = (err) => {
+            statusEl.innerText = "❌ Lỗi kết nối Port 3001";
+            statusEl.className = "status off";
+        };
+
+        socket.onclose = () => {
+            statusEl.innerText = "🔌 Đã ngắt kết nối";
+            statusEl.className = "status off";
+        };
+    </script>
+</body>
+</html>
