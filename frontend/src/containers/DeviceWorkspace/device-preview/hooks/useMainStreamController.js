@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
-import { sendControl, sendVirtualButton } from "../../../services/mediaStream.js";
-import { useStore } from "../../../store/useStore.js";
+import { sendControl, sendVirtualButton } from "../../../../services/mediaStream.js";
+import { useStore } from "../../../../store/useStore.js";
 
 function clamp(value) {
   if (value < 0) {
@@ -18,7 +18,6 @@ export function useMainStreamController() {
   const selectedStreamDevice = useStore((state) => state.selectedStreamDevice);
   const devices = useStore((state) => state.devices);
   const syncAllDevices = useStore((state) => state.syncAllDevices);
-  const toggleSyncAllDevices = useStore((state) => state.toggleSyncAllDevices);
   const selectedDeviceInfo = useMemo(
     () =>
       devices.find(
@@ -102,11 +101,35 @@ export function useMainStreamController() {
     socketRef.current = socket;
   };
 
+  const handleScreenshot = useCallback(
+    (streamShellRef) => {
+      const shell = streamShellRef?.current;
+      if (!shell) {
+        return;
+      }
+
+      const canvas = shell.querySelector("canvas[data-stream-type='main']");
+      if (!canvas) {
+        return;
+      }
+
+      try {
+        const snapshotUrl = canvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.href = snapshotUrl;
+        link.download = `${activeStreamDevice || "device"}-snapshot-${Date.now()}.png`;
+        link.click();
+      } catch (error) {
+        // ignore screenshot failures caused by browser security/runtime restrictions
+      }
+    },
+    [activeStreamDevice],
+  );
+
   return {
     activeStreamDevice,
     selectedDeviceInfo,
     syncAllDevices,
-    toggleSyncAllDevices,
     streamState,
     setStreamState,
     onSocketReady: handleSocketReady,
@@ -115,5 +138,6 @@ export function useMainStreamController() {
     onPointerUp: handlePointerUp,
     onPointerLeave: handlePointerLeave,
     onToolbarAction: handleToolbarAction,
+    onScreenshot: handleScreenshot,
   };
 }

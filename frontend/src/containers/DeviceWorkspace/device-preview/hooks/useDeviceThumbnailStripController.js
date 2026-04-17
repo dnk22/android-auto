@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { useStore } from "../../../store/useStore.js";
+import { useStore } from "../../../../store/useStore.js";
 
 function getBorderClass(state) {
   if (state === "READY") {
@@ -19,6 +19,7 @@ export function useDeviceThumbnailStripController() {
   const setSelectedStreamDevice = useStore(
     (state) => state.setSelectedStreamDevice,
   );
+  const toggleSyncAllDevices = useStore((state) => state.toggleSyncAllDevices);
 
   const connectedDevices = useMemo(
     () =>
@@ -38,5 +39,6 @@ export function useDeviceThumbnailStripController() {
     selectedDevice,
     onSelectDevice: handleSelectDevice,
     getBorderClass,
+    toggleSyncAllDevices,
   };
 }

@@ -1,20 +1,33 @@
-import H264Decoder from "../H264Decoder.jsx";
+import H264Decoder from "../../../components/H264Decoder.jsx";
+import { useDeviceThumbnailStripController } from "./hooks/useDeviceThumbnailStripController.js";
 
-export default function DeviceThumbnailStrip({
-  connectedDevices,
-  selectedDevice,
-  onSelectDevice,
-  getBorderClass,
-}) {
+export default function DeviceThumbnailStripContainer() {
+  const {
+    connectedDevices,
+    selectedDevice,
+    onSelectDevice,
+    getBorderClass,
+    toggleSyncAllDevices,
+    syncAllDevices,
+  } = useDeviceThumbnailStripController();
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-          Connected Streams
+          Thiết bị đã kết nối
         </p>
-        <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
-          Story-style thumbnails
-        </span>
+        <button
+          type="button"
+          onClick={toggleSyncAllDevices}
+          className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] ${
+            syncAllDevices
+              ? "bg-[var(--chip-success-bg)] text-[var(--chip-success-fg)]"
+              : "bg-[var(--panel-soft)] text-[var(--muted)]"
+          }`}
+        >
+          {syncAllDevices ? "Đồng bộ: ON" : "Đồng bộ: OFF"}
+        </button>
       </div>
       <div className="flex gap-3 overflow-x-auto pb-2">
         {connectedDevices.length === 0 ? (

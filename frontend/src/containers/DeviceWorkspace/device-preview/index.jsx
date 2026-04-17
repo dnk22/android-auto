@@ -1,12 +1,11 @@
-import DevicePreviewView from "../../components/DevicePreview/DevicePreviewView.jsx";
 import DeviceThumbnailStripContainer from "./DeviceThumbnailStripContainer.jsx";
 import MainStreamViewContainer from "./MainStreamViewContainer.jsx";
 
-export default function DevicePreviewContainer() {
+export default function DevicePreviewSectionContainer() {
   return (
-    <DevicePreviewView>
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
       <DeviceThumbnailStripContainer />
       <MainStreamViewContainer />
-    </DevicePreviewView>
+    </div>
   );
 }

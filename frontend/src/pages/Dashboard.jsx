@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 import SidebarContainer from "../containers/Sidebar/index.jsx";
 import DashboardMainContainer from "../containers/DashboardMain/index.jsx";
-import DevicePreviewContainer from "../containers/DevicePreview/index.jsx";
+import DeviceWorkspaceContainer from "../containers/DeviceWorkspace/index.jsx";
 import { useStore } from "../store/useStore.js";
 import { listDevices } from "../services/api.js";
 
@@ -51,8 +51,8 @@ export default function Dashboard() {
           <SidebarContainer />
         </div>
         <DashboardMainContainer />
-        <div className="flex h-full w-full">
-          <DevicePreviewContainer />
+        <div className="flex h-full min-h-0 w-full max-h-full overflow-hidden">
+          <DeviceWorkspaceContainer />
         </div>
       </div>
     </div>
