@@ -25,7 +25,7 @@ export function useSidebarController() {
   const refreshDevices = async () => {
     const response = await listDevices();
     setDevices(response.devices || []);
-    addLog("Da cap nhat danh sach thiet bi");
+    addLog("Đã cập nhật danh sách thiết bị");
   };
 
   const handleRefreshDevices = async () => {

@@ -8,28 +8,41 @@ import { listDevices } from "../services/api.js";
 
 export default function Dashboard() {
   const setDevices = useStore((state) => state.setDevices);
-  const selectedDevice = useStore((state) => state.selectedDevice);
   const setSelectedDevice = useStore((state) => state.setSelectedDevice);
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadDevices = async () => {
       try {
         const response = await listDevices();
         const nextDevices = response.devices || [];
+        if (!isMounted) {
+          return;
+        }
         setDevices(nextDevices);
 
+        const { selectedDevice } = useStore.getState();
         if (!selectedDevice) {
-          const connectedDevice = nextDevices.find((device) => device.connected);
+          const connectedDevice = nextDevices.find(
+            (device) => device.connected,
+          );
           if (connectedDevice) {
             setSelectedDevice(connectedDevice.id);
           }
         }
       } catch (error) {
-        setDevices([]);
+        if (isMounted) {
+          setDevices([]);
+        }
       }
     };
-    loadDevices();
-  }, [selectedDevice, setDevices, setSelectedDevice]);
+    void loadDevices();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="app-shell min-h-screen w-full p-4">
