@@ -11,6 +11,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@yume-chan/adb": "^2.6.0",
+    "@yume-chan/adb-scrcpy": "^2.3.2",
+    "@yume-chan/adb-server-node-tcp": "^2.5.2",
     "@yume-chan/scrcpy": "^2.1.0",
     "express": "^4.21.2",
     "ws": "^8.18.1"

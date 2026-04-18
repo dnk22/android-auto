@@ -2,6 +2,7 @@ import subprocess
 import sys
 import time
 import os
+import shutil
 from pathlib import Path
 from typing import Sequence
 
@@ -18,6 +19,108 @@ def fmt_cmd(parts: Sequence[str]) -> str:
 
 def log_line(message: str) -> None:
     print(f"[dev] {message}", flush=True)
+
+
+def detect_scrcpy_server_path() -> str | None:
+    scrcpy_bin = shutil.which("scrcpy")
+    if not scrcpy_bin:
+        return None
+
+    real_bin = Path(scrcpy_bin).resolve()
+    candidates = [
+        real_bin.parent.parent / "share" / "scrcpy" / "scrcpy-server",
+        real_bin.parent.parent / "share" / "scrcpy" / "scrcpy-server.jar",
+    ]
+
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+
+    return None
+
+
+def detect_scrcpy_version() -> str | None:
+    scrcpy_bin = shutil.which("scrcpy")
+    if not scrcpy_bin:
+        return None
+
+    try:
+        result = subprocess.run(
+            [scrcpy_bin, "--version"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except Exception:
+        return None
+
+    output = (result.stdout or "") + "\n" + (result.stderr or "")
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if not line.lower().startswith("scrcpy"):
+            continue
+        parts = line.split()
+        if len(parts) >= 2:
+            return parts[1].strip()
+
+    return None
+
+
+def stop_stale_backend(port: int, backend_dir: Path) -> None:
+    try:
+        result = subprocess.run(
+            ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return
+
+    pids = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if not pids:
+        return
+
+    candidates: list[str] = []
+
+    for pid in pids:
+        ps_result = subprocess.run(
+            ["ps", "-p", pid, "-o", "pid=,command="],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        command = ps_result.stdout.strip()
+        if not command:
+            continue
+
+        if "run.py" in command and "python" in command.lower():
+            candidates.append(pid)
+
+    if not candidates:
+        log_line(
+            f"backend port {port} is already in use by a non-backend process; "
+            "stop it manually before running dev",
+        )
+        raise SystemExit(1)
+
+    log_line(f"stopping stale backend listener on port {port}: {' '.join(candidates)}")
+    subprocess.run(["kill", "-TERM", *candidates], check=False)
+
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        check = subprocess.run(
+            ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        remaining = [line.strip() for line in check.stdout.splitlines() if line.strip()]
+        if not remaining:
+            return
+        time.sleep(0.2)
+
+    subprocess.run(["kill", "-KILL", *candidates], check=False)
 
 
 def main() -> None:
@@ -70,6 +173,21 @@ def main() -> None:
 
     media_env = os.environ.copy()
     media_env["MEDIA_CORS_ORIGINS"] = "*"
+    if "MEDIA_SCRCPY_SERVER_LOCAL_PATH" not in media_env:
+        scrcpy_server_path = detect_scrcpy_server_path()
+        if scrcpy_server_path:
+            media_env["MEDIA_SCRCPY_SERVER_LOCAL_PATH"] = scrcpy_server_path
+            log_line(f"media    using scrcpy-server={scrcpy_server_path}")
+        else:
+            log_line("media    warning: scrcpy-server binary not found; set MEDIA_SCRCPY_SERVER_LOCAL_PATH manually")
+
+    if "MEDIA_SCRCPY_CLIENT_VERSION" not in media_env:
+        scrcpy_version = detect_scrcpy_version()
+        if scrcpy_version:
+            media_env["MEDIA_SCRCPY_CLIENT_VERSION"] = scrcpy_version
+            log_line(f"media    using scrcpy-client-version={scrcpy_version}")
+
+    stop_stale_backend(8000, backend_dir)
 
     log_line("starting processes")
     log_line(f"backend  cwd={backend_dir} cmd={fmt_cmd(backend_cmd)}")
@@ -104,9 +222,13 @@ def main() -> None:
         for name, proc in procs:
             try:
                 proc.wait(timeout=5)
-            except Exception:
+            except subprocess.TimeoutExpired:
                 log_line(f"force killing {name} (pid={proc.pid})")
                 proc.kill()
+            except BaseException:
+                if proc.poll() is None:
+                    log_line(f"force killing {name} (pid={proc.pid})")
+                    proc.kill()
         log_line("all processes stopped")
 
 

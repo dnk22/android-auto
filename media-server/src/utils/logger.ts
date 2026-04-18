@@ -30,5 +30,5 @@ export const log = (payload: LogInput): void => {
     ...payload,
   };
 
-  process.stdout.write(`${JSON.stringify(line)}\n`);
+  console.log(JSON.stringify(line));
 };

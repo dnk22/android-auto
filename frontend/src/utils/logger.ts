@@ -24,6 +24,4 @@ export const log = (level: LogLevel, payload: LogPayload): void => {
     console.warn(line);
     return;
   }
-
-  console.log(line);
 };

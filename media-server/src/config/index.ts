@@ -5,6 +5,11 @@ export interface AppConfig {
   idleTimeoutMs: number;
   thumbnailIntervalMs: number;
   logLevel: "debug" | "info" | "warn" | "error";
+  adbServerHost: string;
+  adbServerPort: number;
+  scrcpyServerDevicePath: string;
+  scrcpyServerLocalPath?: string;
+  scrcpyClientVersion?: string;
 }
 
 const toNumber = (value: string | undefined, fallback: number): number => {
@@ -54,4 +59,10 @@ export const config: AppConfig = {
   idleTimeoutMs: toNumber(process.env.MEDIA_IDLE_TIMEOUT_MS, 30_000),
   thumbnailIntervalMs: toNumber(process.env.MEDIA_THUMBNAIL_INTERVAL_MS, 5_000),
   logLevel: toLogLevel(process.env.MEDIA_LOG_LEVEL),
+  adbServerHost: process.env.MEDIA_ADB_SERVER_HOST ?? "127.0.0.1",
+  adbServerPort: toNumber(process.env.MEDIA_ADB_SERVER_PORT, 5037),
+  scrcpyServerDevicePath:
+    process.env.MEDIA_SCRCPY_SERVER_DEVICE_PATH ?? "/data/local/tmp/scrcpy-server.jar",
+  scrcpyServerLocalPath: process.env.MEDIA_SCRCPY_SERVER_LOCAL_PATH,
+  scrcpyClientVersion: process.env.MEDIA_SCRCPY_CLIENT_VERSION,
 };

@@ -6,11 +6,15 @@ export interface Session {
   deviceId: string;
   status: SessionStatus;
   scrcpy?: {
-    process: unknown;
-    stream: NodeJS.ReadableStream;
+    stop: () => Promise<void>;
   };
   clients: Set<WebSocket>;
+  videoCodec?: "h264";
+  videoWidth?: number;
+  videoHeight?: number;
+  codecConfig?: Buffer;
   lastFrame?: Buffer;
+  lastKeyframe?: Buffer;
   lastFrameAt?: number;
   thumbnail?: Buffer;
   thumbnailAt?: number;

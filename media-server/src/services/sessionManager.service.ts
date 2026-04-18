@@ -5,7 +5,10 @@ import type { Session, SessionStatus } from "../types/session";
 import { AsyncLock } from "../utils/asyncLock";
 import { nowMs } from "../utils/time";
 import { log } from "../utils/logger";
+import { isKeyframe, wrapFrame } from "../utils/streamProtocol";
 import { ScrcpyService } from "./scrcpy.service";
+
+const MAX_CLIENT_BUFFERED_BYTES = 1024 * 1024;
 
 export class SessionManager {
   private readonly sessions = new Map<string, Session>();
@@ -70,8 +73,24 @@ export class SessionManager {
 
       try {
         const runtime = await this.scrcpyService.start(deviceId, {
-          onFrame: (frame) => {
+          onConfig: (payload) => {
+            session.videoCodec = payload.codec;
+            session.videoWidth = payload.width;
+            session.videoHeight = payload.height;
+            if (payload.codecConfig && payload.codecConfig.length > 0) {
+              session.codecConfig = payload.codecConfig;
+            }
+          },
+          onFrame: (frame, keyframeHint) => {
+            const keyframe = keyframeHint ?? isKeyframe(frame);
+            const payload = wrapFrame(frame, keyframe);
+
             session.lastFrame = frame;
+            if (keyframe) {
+              session.lastKeyframe = session.codecConfig
+                ? Buffer.concat([session.codecConfig, frame])
+                : frame;
+            }
             session.lastFrameAt = nowMs();
 
             if (session.status === "STARTING") {
@@ -80,7 +99,11 @@ export class SessionManager {
 
             for (const client of session.clients) {
               if (client.readyState === client.OPEN) {
-                client.send(frame, { binary: true });
+                if (client.bufferedAmount > MAX_CLIENT_BUFFERED_BYTES) {
+                  continue;
+                }
+
+                client.send(payload, { binary: true });
               }
             }
           },
@@ -96,8 +119,7 @@ export class SessionManager {
         });
 
         session.scrcpy = {
-          process: runtime.process,
-          stream: runtime.stream,
+          stop: runtime.stop,
         };
 
         lifecycleHook.onSessionStart(deviceId);

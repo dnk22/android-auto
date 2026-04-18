@@ -37,11 +37,11 @@ export class ThumbnailService {
 
     await Promise.all(
       sessions.map(async (session) => {
-        if (!session.lastFrame || session.lastFrame.length === 0) {
+        if (!session.lastKeyframe || session.lastKeyframe.length === 0) {
           return;
         }
 
-        const jpeg = await this.toJpeg(session.lastFrame);
+        const jpeg = await this.toJpeg(session.lastKeyframe);
         if (!jpeg) {
           return;
         }

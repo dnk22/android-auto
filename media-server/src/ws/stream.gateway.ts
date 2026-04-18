@@ -2,6 +2,7 @@ import type { IncomingMessage, Server as HttpServer } from "node:http";
 import { WebSocketServer } from "ws";
 import type WebSocket from "ws";
 import type { SessionManager } from "../services/sessionManager.service";
+import { buildConfigMessage, wrapFrame } from "../utils/streamProtocol";
 import { log } from "../utils/logger";
 
 const parseDeviceId = (pathname: string): string | null => {
@@ -40,8 +41,19 @@ export const createStreamGateway = (server: HttpServer, sessionManager: SessionM
 
     log({ level: "info", event: "ws_client_connected", deviceId, clients: session.clients.size });
 
-    if (session.lastFrame && client.readyState === client.OPEN) {
-      client.send(session.lastFrame, { binary: true });
+    if (client.readyState === client.OPEN) {
+      client.send(
+        JSON.stringify(
+          buildConfigMessage(
+            session.videoWidth ?? 0,
+            session.videoHeight ?? 0,
+          ),
+        ),
+      );
+    }
+
+    if (session.lastKeyframe && client.readyState === client.OPEN) {
+      client.send(wrapFrame(session.lastKeyframe, true), { binary: true });
     }
 
     client.on("close", () => {
