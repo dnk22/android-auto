@@ -40,3 +40,13 @@ export async function sendBroadcastAction(payload: {
     delayMs: 250,
   });
 }
+
+export async function sendTestU2(payload: {
+  deviceId?: string;
+  syncAll: boolean;
+}): Promise<void> {
+  await retry(() => apiClient.post("/testU2", payload), {
+    retries: 1,
+    delayMs: 250,
+  });
+}

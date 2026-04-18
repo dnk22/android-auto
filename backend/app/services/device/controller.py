@@ -19,6 +19,20 @@ class DeviceController:
     async def recents(self, device_id: str) -> None:
         await self._send_keyevent(device_id, 187, "recents")
 
+    async def test_u2(self, device_id: str) -> None:
+        await self._run_adb_command(
+            device_id,
+            ["shell", "am", "start", "-a", "android.settings.SETTINGS"],
+        )
+        self._logger.info(
+            device_id=device_id,
+            type=LogType.CONTROL,
+            event="test_u2_open_settings",
+            message="Opened Android settings for U2 test",
+        )
+        await asyncio.sleep(1.0)
+        await self.home(device_id)
+
     async def _send_keyevent(self, device_id: str, key_code: int, action: str) -> None:
         await self._run_adb_command(
             device_id,

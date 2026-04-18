@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { connectDeviceApi, disconnectDeviceApi, fetchDevices } from "../api/device.api";
-import { sendBroadcastAction, sendDeviceAction } from "../api/control.api";
+import { sendBroadcastAction, sendDeviceAction, sendTestU2 } from "../api/control.api";
 
 export function useControl(): {
   connect: (deviceId: string) => Promise<void>;
@@ -9,6 +9,8 @@ export function useControl(): {
   disconnectAll: (deviceIds: string[]) => Promise<void>;
   action: (deviceId: string, action: "back" | "home" | "recents") => Promise<void>;
   broadcastAction: (action: "back" | "home" | "recents") => Promise<void>;
+  testU2: (deviceId: string) => Promise<void>;
+  testU2All: () => Promise<void>;
 } {
   return useMemo(
     () => ({
@@ -26,6 +28,8 @@ export function useControl(): {
         sendDeviceAction(deviceId, { action }),
       broadcastAction: (action: "back" | "home" | "recents") =>
         sendBroadcastAction({ action, only_connected: true }),
+      testU2: (deviceId: string) => sendTestU2({ deviceId, syncAll: false }),
+      testU2All: () => sendTestU2({ syncAll: true }),
     }),
     [],
   );

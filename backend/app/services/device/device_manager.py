@@ -247,6 +247,13 @@ class DeviceManager:
 
             raise ValueError(f"Unsupported action: {action}")
 
+    async def perform_test_u2(self, device_id: str) -> None:
+        async with self._locks.device(device_id):
+            device = self._devices.get(device_id)
+            if device is None or not device.u2:
+                raise ValueError("Device is not connected to u2")
+            await self._controller.test_u2(device_id)
+
     async def _delayed_stop(self, device_id: str) -> None:
         try:
             await asyncio.sleep(self._disconnect_grace_sec)

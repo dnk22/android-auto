@@ -6,7 +6,9 @@ export default function DeviceThumbnailStripContainer() {
     connectedDevices,
     selectedDevice,
     onSelectDevice,
+    onTestU2,
     toggleSyncAllDevices,
+    isTestingU2,
     syncAllDevices,
   } = useDeviceThumbnailStripController();
 
@@ -16,17 +18,27 @@ export default function DeviceThumbnailStripContainer() {
         <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
           Thiết bị đã kết nối
         </p>
-        <button
-          type="button"
-          onClick={toggleSyncAllDevices}
-          className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] ${
-            syncAllDevices
-              ? "bg-[var(--chip-success-bg)] text-[var(--chip-success-fg)]"
-              : "bg-[var(--panel-soft)] text-[var(--muted)]"
-          }`}
-        >
-          {syncAllDevices ? "Đồng bộ: ON" : "Đồng bộ: OFF"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleSyncAllDevices}
+            className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] ${
+              syncAllDevices
+                ? "bg-[var(--chip-success-bg)] text-[var(--chip-success-fg)]"
+                : "bg-[var(--panel-soft)] text-[var(--muted)]"
+            }`}
+          >
+            {syncAllDevices ? "Đồng bộ: ON" : "Đồng bộ: OFF"}
+          </button>
+          <button
+            type="button"
+            onClick={onTestU2}
+            disabled={isTestingU2 || (!syncAllDevices && !selectedDevice)}
+            className="rounded-full bg-[var(--panel-soft)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isTestingU2 ? "Test U2..." : "Test U2"}
+          </button>
+        </div>
       </div>
       <div className="flex gap-3 overflow-x-auto p-1">
         {connectedDevices.length === 0 ? (
