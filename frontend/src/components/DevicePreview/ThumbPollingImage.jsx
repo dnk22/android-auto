@@ -42,6 +42,11 @@ export default function ThumbPollingImage({ serial, className = "" }) {
           return;
         }
 
+        if (!blob) {
+          setStatus("loading");
+          return;
+        }
+
         updateImage(blob);
         setStatus("ready");
       } catch (error) {

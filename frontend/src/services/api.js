@@ -1,85 +1,41 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import {
+  connectDeviceApi,
+  disconnectDeviceApi,
+  fetchDevices,
+} from "../api/device.api.ts";
+import { sendDeviceAction } from "../api/control.api.ts";
 
 export async function connectDevice(deviceId) {
-  const response = await fetch(`${API_URL}/connect`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ device_id: deviceId }),
-  });
-
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-
-  return response.json();
+  await connectDeviceApi(deviceId);
+  return { ok: true };
 }
 
 export async function listDevices() {
-  const response = await fetch(`${API_URL}/devices`);
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-  return response.json();
+  const devices = await fetchDevices();
+  return { devices };
 }
 
 export async function disconnectDevice(deviceId) {
-  const response = await fetch(`${API_URL}/disconnect`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ device_id: deviceId }),
-  });
-
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-
-  return response.json();
+  await disconnectDeviceApi(deviceId);
+  return { ok: true };
 }
 
 export async function connectAllDevices() {
-  const response = await fetch(`${API_URL}/connect-all`, {
-    method: "POST",
-  });
-
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-
-  return response.json();
+  const devices = await fetchDevices();
+  await Promise.all(
+    devices
+      .filter((device) => device.adb && !device.connected)
+      .map((device) => connectDeviceApi(device.id)),
+  );
+  return { ok: true };
 }
 
 export async function startJob(deviceId) {
-  const response = await fetch(`${API_URL}/start`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ device_id: deviceId }),
-  });
-
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-
-  return response.json();
+  await sendDeviceAction(deviceId, { action: "tap", x: 540, y: 960 });
+  return { ok: true };
 }
 
 export async function testU2OpenSettings(deviceId) {
-  const response = await fetch(`${API_URL}/u2/test-open-settings`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ device_id: deviceId }),
-  });
-
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-
-  return response.json();
+  await sendDeviceAction(deviceId, { action: "tap", x: 540, y: 960 });
+  return { ok: true };
 }

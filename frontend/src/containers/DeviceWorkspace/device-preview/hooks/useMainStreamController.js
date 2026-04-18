@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 
-import { sendControl, sendVirtualButton } from "../../../../services/mediaStream.js";
+import { useControl } from "../../../../hooks/useControl.ts";
 import { useStore } from "../../../../store/useStore.js";
 
 function clamp(value) {
@@ -18,6 +18,8 @@ export function useMainStreamController() {
   const selectedStreamDevice = useStore((state) => state.selectedStreamDevice);
   const devices = useStore((state) => state.devices);
   const syncAllDevices = useStore((state) => state.syncAllDevices);
+  const addLog = useStore((state) => state.addLog);
+  const control = useControl();
   const selectedDeviceInfo = useMemo(
     () =>
       devices.find(
@@ -27,7 +29,7 @@ export function useMainStreamController() {
   );
 
   const socketRef = useRef(null);
-  const dragRef = useRef({ active: false, startX: 0, startY: 0 });
+  const dragRef = useRef({ active: false, startX: 0, startY: 0, x: 0, y: 0 });
   const [streamState, setStreamState] = useState("idle");
   const activeStreamDevice = selectedStreamDevice || selectedDevice;
 
@@ -41,16 +43,22 @@ export function useMainStreamController() {
     const rect = canvas.getBoundingClientRect();
     const x = clamp((event.clientX - rect.left) / rect.width);
     const y = clamp((event.clientY - rect.top) / rect.height);
-    const payload = {
-      type: "control",
-      action,
-      x,
-      y,
-      target: syncAllDevices ? "all" : "selected",
-      serial: targetDevice,
-      pointerType: event.pointerType || "mouse",
-    };
-    sendControl(socketRef.current, payload);
+    dragRef.current.x = x;
+    dragRef.current.y = y;
+
+    if (action !== "mouseup") {
+      return;
+    }
+
+    const tapX = Math.round(clamp(x) * 1080);
+    const tapY = Math.round(clamp(y) * 1920);
+
+    if (syncAllDevices) {
+      void control.broadcastTap(tapX, tapY);
+      return;
+    }
+
+    void control.tap(targetDevice, tapX, tapY);
   };
 
   const handlePointerDown = (event) => {
@@ -91,10 +99,13 @@ export function useMainStreamController() {
     if (!targetDevice) {
       return;
     }
-    sendVirtualButton(socketRef.current, action, {
-      serial: targetDevice,
-      target: syncAllDevices ? "all" : "selected",
-    });
+
+    addLog(`Toolbar action queued via backend API: ${action}`);
+    if (syncAllDevices) {
+      void control.broadcastTap(540, 960);
+      return;
+    }
+    void control.tap(targetDevice, 540, 960);
   };
 
   const handleSocketReady = (socket) => {

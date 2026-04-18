@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
-import { createStreamSocket } from "../services/mediaStream.js";
+import { getDeviceStream } from "../api/stream.api.ts";
+import { createStreamSocketFromUrl } from "../services/mediaStream.js";
 import { useStore } from "../store/useStore.js";
 
 const FALLBACK_CODEC = "avc1.42E01E";
 const RECONNECT_DELAY_MS = 1_000;
+const MAX_RECONNECT_ATTEMPTS = 3;
 const TIMESTAMP_STEP = 1;
 
 function parsePrefixedFrame(payload) {
@@ -82,6 +84,7 @@ export default function H264Decoder({
     let socket;
     let cancelled = false;
     let decoder;
+    let reconnectAttempts = 0;
     hasReceivedKeyFrameRef.current = false;
 
     const clearReconnectTimer = () => {
@@ -178,142 +181,166 @@ export default function H264Decoder({
       return instance;
     };
 
+    const connect = async () => {
+      if (cancelled) {
+        return;
+      }
+
+      clearReconnectTimer();
+      setConnectionState("connecting");
+
+      try {
+        const streamInfo = await getDeviceStream(serial);
+        if (cancelled) {
+          return;
+        }
+
+        socket = createStreamSocketFromUrl(streamInfo.wsUrl, {
+          onOpen: () => {
+            if (cancelled) {
+              return;
+            }
+            reconnectAttempts = 0;
+            setConnectionState("connected");
+            setStreamState(streamKey, {
+              type: "main",
+              status: "connected",
+              serial,
+              streamKey,
+            });
+            onSocketReadyRef.current?.(socket);
+          },
+          onClose: () => {
+            if (cancelled) {
+              return;
+            }
+            setConnectionState("closed");
+            setStreamState(streamKey, {
+              type: "main",
+              status: "disconnected",
+              serial,
+              streamKey,
+            });
+            clearStreamState(streamKey);
+            resetDecoderState();
+            scheduleReconnect();
+          },
+          onError: () => {
+            if (cancelled) {
+              return;
+            }
+            setConnectionState("error");
+            setStreamState(streamKey, {
+              type: "main",
+              status: "error",
+              serial,
+              streamKey,
+            });
+            onFrameStateChangeRef.current?.("error");
+            scheduleReconnect();
+          },
+          onMessage: (event) => {
+            if (cancelled) {
+              return;
+            }
+
+            if (typeof event.data === "string") {
+              try {
+                const message = JSON.parse(event.data);
+                if (message.type === "config") {
+                  const codec = String(message.codec || FALLBACK_CODEC);
+                  resetDecoderState();
+                  decoder = createDecoder(codec);
+                  decoderRef.current = decoder;
+                  onFrameStateChangeRef.current?.("connected");
+                }
+              } catch (error) {
+                console.error(error);
+              }
+              return;
+            }
+
+            const payload = new Uint8Array(event.data);
+            if (payload.length === 0) {
+              return;
+            }
+
+            const prefixed = parsePrefixedFrame(payload);
+            if (!prefixed) {
+              return;
+            }
+
+            const { data, isKeyFrame } = prefixed;
+
+            if (isKeyFrame) {
+              hasReceivedKeyFrameRef.current = true;
+            }
+
+            if (!hasReceivedKeyFrameRef.current) {
+              return;
+            }
+
+            if (!decoder) {
+              return;
+            }
+
+            if (decoder.state === "closed") {
+              decoder = null;
+              decoderRef.current = null;
+              hasReceivedKeyFrameRef.current = false;
+              return;
+            }
+
+            try {
+              decoder.decode(
+                new EncodedVideoChunk({
+                  type: isKeyFrame ? "key" : "delta",
+                  timestamp: timestampRef.current,
+                  data,
+                })
+              );
+              timestampRef.current += TIMESTAMP_STEP;
+            } catch (error) {
+              console.error(error);
+              resetDecoderState();
+              onFrameStateChangeRef.current?.("error");
+            }
+          },
+        });
+      } catch (error) {
+        if (!cancelled) {
+          setConnectionState("error");
+          scheduleReconnect();
+        }
+      }
+    };
+
     const scheduleReconnect = () => {
       if (cancelled || reconnectTimerRef.current) {
         return;
       }
+
+      reconnectAttempts += 1;
+      const delay = reconnectAttempts <= MAX_RECONNECT_ATTEMPTS
+        ? RECONNECT_DELAY_MS
+        : RECONNECT_DELAY_MS * 2;
 
       reconnectTimerRef.current = setTimeout(() => {
         reconnectTimerRef.current = null;
         if (!cancelled) {
           connect();
         }
-      }, RECONNECT_DELAY_MS);
+      }, delay);
     };
 
-    const connect = () => {
-      clearReconnectTimer();
-      socket = createStreamSocket(serial, {
-      onOpen: () => {
-        if (cancelled) {
-          return;
-        }
-        setConnectionState("connected");
-        setStreamState(streamKey, {
-          type: "main",
-          status: "connected",
-          serial,
-          streamKey,
-        });
-        onSocketReadyRef.current?.(socket);
-      },
-      onClose: () => {
-        if (cancelled) {
-          return;
-        }
-        setConnectionState("closed");
-        setStreamState(streamKey, {
-          type: "main",
-          status: "disconnected",
-          serial,
-          streamKey,
-        });
-        clearStreamState(streamKey);
-        resetDecoderState();
-        scheduleReconnect();
-      },
-      onError: () => {
-        if (cancelled) {
-          return;
-        }
-        setConnectionState("error");
-        setStreamState(streamKey, {
-          type: "main",
-          status: "error",
-          serial,
-          streamKey,
-        });
-        onFrameStateChangeRef.current?.("error");
-        scheduleReconnect();
-      },
-      onMessage: (event) => {
-        if (cancelled) {
-          return;
-        }
-
-        if (typeof event.data === "string") {
-          try {
-            const message = JSON.parse(event.data);
-            if (message.type === "config") {
-              const codec = String(message.codec || FALLBACK_CODEC);
-              resetDecoderState();
-              decoder = createDecoder(codec);
-              decoderRef.current = decoder;
-              onFrameStateChangeRef.current?.("connected");
-            }
-          } catch (error) {
-            console.error(error);
-          }
-          return;
-        }
-
-        const payload = new Uint8Array(event.data);
-        if (payload.length === 0) {
-          return;
-        }
-
-        const prefixed = parsePrefixedFrame(payload);
-        if (!prefixed) {
-          return;
-        }
-
-        const { data, isKeyFrame } = prefixed;
-
-        if (isKeyFrame) {
-          hasReceivedKeyFrameRef.current = true;
-        }
-
-        if (!hasReceivedKeyFrameRef.current) {
-          return;
-        }
-
-        if (!decoder) {
-          return;
-        }
-
-        if (decoder.state === "closed") {
-          decoder = null;
-          decoderRef.current = null;
-          hasReceivedKeyFrameRef.current = false;
-          return;
-        }
-
-        try {
-          decoder.decode(
-            new EncodedVideoChunk({
-              type: isKeyFrame ? "key" : "delta",
-              timestamp: timestampRef.current,
-              data,
-            })
-          );
-          timestampRef.current += TIMESTAMP_STEP;
-        } catch (error) {
-          console.error(error);
-          resetDecoderState();
-          onFrameStateChangeRef.current?.("error");
-        }
-      },
-    });
-    };
-
-    connect();
+    void connect();
 
     return () => {
       cancelled = true;
       clearReconnectTimer();
       onFrameStateChangeRef.current?.("idle");
       resetDecoderState();
-      if (socket && socket.readyState === WebSocket.OPEN) {
+      if (socket && socket.readyState <= WebSocket.OPEN) {
         socket.close();
       }
     };

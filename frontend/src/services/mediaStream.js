@@ -5,6 +5,7 @@ const STREAM_WS_URL = STREAM_WS_URL_RAW.replace(/\/+$/, "");
 
 const STREAM_HTTP_URL_RAW =
   import.meta.env.VITE_STREAM_HTTP_URL ||
+  import.meta.env.VITE_MEDIA_HTTP_URL ||
   STREAM_WS_URL.replace(/^ws:/i, "http:").replace(/^wss:/i, "https:");
 
 const STREAM_HTTP_URL = STREAM_HTTP_URL_RAW.replace(/\/+$/, "");
@@ -14,7 +15,7 @@ export function buildStreamUrl(serial) {
 }
 
 export function buildThumbUrl(serial) {
-  return `${STREAM_HTTP_URL}/stream/thumb/${encodeURIComponent(serial)}`;
+  return `${STREAM_HTTP_URL}/thumbnail/${encodeURIComponent(serial)}`;
 }
 
 export function createStreamSocket(serial, handlers = {}) {
@@ -22,7 +23,11 @@ export function createStreamSocket(serial, handlers = {}) {
     throw new Error("serial is required");
   }
 
-  const socket = new WebSocket(buildStreamUrl(serial));
+  return createStreamSocketFromUrl(buildStreamUrl(serial), handlers);
+}
+
+export function createStreamSocketFromUrl(wsUrl, handlers = {}) {
+  const socket = new WebSocket(wsUrl);
   socket.binaryType = "arraybuffer";
 
   socket.onopen = () => handlers.onOpen?.(socket);
@@ -54,6 +59,10 @@ export async function fetchThumbImage(serial, options = {}) {
     cache: "no-store",
     signal: options.signal,
   });
+
+  if (response.status === 204) {
+    return null;
+  }
 
   if (!response.ok) {
     throw new Error(`thumb_request_failed:${response.status}`);

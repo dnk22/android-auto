@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
-import { listDevices, testU2OpenSettings } from "../../../services/api.js";
+import { fetchDevices } from "../../../api/device.api.ts";
+import { useControl } from "../../../hooks/useControl.ts";
 import { getErrorMessage, toastAction } from "../../../services/feedback.js";
 import { useStore } from "../../../store/useStore.js";
 
@@ -10,6 +11,7 @@ export function useDashboardMainController() {
   const setDevices = useStore((state) => state.setDevices);
   const addLog = useStore((state) => state.addLog);
   const [isTestingU2, setIsTestingU2] = useState(false);
+  const control = useControl();
 
   const selectedDeviceInfo = useMemo(
     () => devices.find((device) => device.id === selectedDevice),
@@ -17,8 +19,8 @@ export function useDashboardMainController() {
   );
 
   const refreshDevices = async () => {
-    const response = await listDevices();
-    setDevices(response.devices || []);
+    const devicesResponse = await fetchDevices();
+    setDevices(devicesResponse || []);
     addLog("Da cap nhat danh sach thiet bi");
   };
 
@@ -44,7 +46,7 @@ export function useDashboardMainController() {
       setIsTestingU2(true);
       await toastAction(
         async () => {
-          await testU2OpenSettings(selectedDevice);
+          await control.tap(selectedDevice, 540, 960);
           addLog(`U2 test OK: da mo Settings tren ${selectedDevice}`);
           await refreshDevices();
         },

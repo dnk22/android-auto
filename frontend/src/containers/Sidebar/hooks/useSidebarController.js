@@ -1,11 +1,7 @@
 import { useState } from "react";
 
-import {
-  connectAllDevices,
-  connectDevice,
-  disconnectDevice,
-  listDevices,
-} from "../../../services/api.js";
+import { fetchDevices } from "../../../api/device.api.ts";
+import { useControl } from "../../../hooks/useControl.ts";
 import { toastAction, getErrorMessage } from "../../../services/feedback.js";
 import { useStore } from "../../../store/useStore.js";
 
@@ -20,14 +16,14 @@ export function useSidebarController() {
   const addLog = useStore((state) => state.addLog);
   const theme = useStore((state) => state.theme);
   const toggleTheme = useStore((state) => state.toggleTheme);
+  const control = useControl();
 
   const [connectingDeviceId, setConnectingDeviceId] = useState("");
   const [isConnectingAll, setIsConnectingAll] = useState(false);
   const [isDisconnectingAll, setIsDisconnectingAll] = useState(false);
 
   const refreshDevices = async () => {
-    const response = await listDevices();
-    const nextDevices = response.devices || [];
+    const nextDevices = await fetchDevices();
     setDevices(nextDevices);
     addLog("Đã cập nhật danh sách thiết bị");
     return nextDevices;
@@ -51,7 +47,7 @@ export function useSidebarController() {
       setConnectingDeviceId(targetDeviceId);
       await toastAction(
         async () => {
-          await connectDevice(targetDeviceId);
+          await control.connect(targetDeviceId);
           setSelectedDevice(targetDeviceId);
           await refreshDevices();
           addLog(`Kết nối thành công với ${targetDeviceId}`);
@@ -74,7 +70,7 @@ export function useSidebarController() {
     try {
       await toastAction(
         async () => {
-          await disconnectDevice(targetDeviceId);
+          await control.disconnect(targetDeviceId);
           if (selectedDevice === targetDeviceId) {
             setSelectedDevice("");
           }
@@ -98,7 +94,7 @@ export function useSidebarController() {
       setIsConnectingAll(true);
       await toastAction(
         async () => {
-          await connectAllDevices();
+          await control.connectAll();
           const refreshedDevices = await refreshDevices();
           const previewDevices = refreshedDevices.filter(
             (device) => String(device.u2_status).toLowerCase() === "connected",
@@ -144,9 +140,7 @@ export function useSidebarController() {
       await toastAction(
         async () => {
           const connectedDevices = devices.filter((device) => device.connected);
-          await Promise.all(
-            connectedDevices.map((device) => disconnectDevice(device.id)),
-          );
+          await control.disconnectAll(connectedDevices.map((device) => device.id));
           if (
             selectedDevice &&
             connectedDevices.some((device) => device.id === selectedDevice)

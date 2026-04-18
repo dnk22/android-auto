@@ -3,21 +3,15 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import Dashboard from "./pages/Dashboard.jsx";
+import { useDevices } from "./hooks/useDevices.ts";
 import { useStore } from "./store/useStore.js";
 
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws/logs";
-const DEVICE_WS_URL =
-  import.meta.env.VITE_DEVICE_WS_URL || "ws://localhost:8000/ws/devices";
 
 export default function App() {
   const addLog = useStore((state) => state.addLog);
   const theme = useStore((state) => state.theme);
-  const setDevices = useStore((state) => state.setDevices);
-  const mergeDevice = useStore((state) => state.mergeDevice);
-  const setSelectedDevice = useStore((state) => state.setSelectedDevice);
-  const setSelectedStreamDevice = useStore(
-    (state) => state.setSelectedStreamDevice
-  );
+  useDevices();
 
   useEffect(() => {
     document.body.setAttribute("data-theme", theme);
@@ -56,64 +50,6 @@ export default function App() {
       }
     };
   }, [addLog]);
-
-  useEffect(() => {
-    let socket;
-    let isActive = true;
-
-    const connect = () => {
-      socket = new WebSocket(DEVICE_WS_URL);
-      socket.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data);
-          const currentState = useStore.getState();
-          if (payload?.type === "device_snapshot" && Array.isArray(payload.data)) {
-            setDevices(payload.data);
-            if (!currentState.selectedDevice) {
-              const connectedDevice = payload.data.find(
-                (device) => device.connected
-              );
-              if (connectedDevice) {
-                setSelectedDevice(connectedDevice.id);
-                if (!currentState.selectedStreamDevice) {
-                  setSelectedStreamDevice(connectedDevice.id);
-                }
-              }
-            }
-            return;
-          }
-
-          if (payload?.type === "device_update" && payload.data?.id) {
-            mergeDevice(payload.data);
-            return;
-          }
-        } catch (error) {
-          addLog("Invalid device websocket payload");
-        }
-      };
-      socket.onerror = () => socket.close();
-      socket.onclose = () => {
-        if (isActive) {
-          setTimeout(connect, 1000);
-        }
-      };
-    };
-
-    connect();
-
-    return () => {
-      isActive = false;
-      if (socket) {
-        socket.close();
-      }
-    };
-  }, [
-    addLog,
-    mergeDevice,
-    setDevices,
-    setSelectedDevice,
-    setSelectedStreamDevice,
-  ]);
 
   return (
     <>
