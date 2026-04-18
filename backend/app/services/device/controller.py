@@ -4,11 +4,13 @@ import asyncio
 
 from app.models.common import LogType
 from app.services.logging.logger import JsonLogger
+from app.services.u2 import U2AutomationService
 
 
 class DeviceController:
     def __init__(self, logger: JsonLogger) -> None:
         self._logger = logger
+        self._u2_automation = U2AutomationService(logger)
 
     async def back(self, device_id: str) -> None:
         await self._send_keyevent(device_id, 4, "back")
@@ -20,18 +22,7 @@ class DeviceController:
         await self._send_keyevent(device_id, 187, "recents")
 
     async def test_u2(self, device_id: str) -> None:
-        await self._run_adb_command(
-            device_id,
-            ["shell", "am", "start", "-a", "android.settings.SETTINGS"],
-        )
-        self._logger.info(
-            device_id=device_id,
-            type=LogType.CONTROL,
-            event="test_u2_open_settings",
-            message="Opened Android settings for U2 test",
-        )
-        await asyncio.sleep(1.0)
-        await self.home(device_id)
+        await self._u2_automation.test_open_settings_then_home(device_id, delay_sec=1.0)
 
     async def _send_keyevent(self, device_id: str, key_code: int, action: str) -> None:
         await self._run_adb_command(
