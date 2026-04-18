@@ -2,6 +2,21 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Sequence
+
+
+def pick_js_runner(project_dir: Path) -> str:
+    if (project_dir / "yarn.lock").exists():
+        return "yarn"
+    return "npm"
+
+
+def fmt_cmd(parts: Sequence[str]) -> str:
+    return " ".join(parts)
+
+
+def log_line(message: str) -> None:
+    print(f"[dev] {message}", flush=True)
 
 
 def main() -> None:
@@ -9,55 +24,73 @@ def main() -> None:
     venv_python = root / ".venv" / "bin" / "python"
     python_exec = str(venv_python) if venv_python.exists() else sys.executable
 
+    backend_dir = root / "backend"
+    frontend_dir = root / "frontend"
+    media_dir = root / "media-server"
+
+    frontend_runner = pick_js_runner(frontend_dir)
+    media_runner = pick_js_runner(media_dir)
+
     backend_cmd = [
         python_exec,
-        "-m",
-        "uvicorn",
-        "app.main:app",
-        "--reload",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "8000",
+        "run.py",
     ]
-    frontend_cmd = [
-        "npm",
-        "run",
-        "dev",
-        "--",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "5173",
-    ]
-    media_cmd = [
-        "node",
-        "server.js",
-    ]
+    if frontend_runner == "yarn":
+        frontend_cmd = [frontend_runner, "dev", "--host", "0.0.0.0", "--port", "5173"]
+    else:
+        frontend_cmd = [
+            frontend_runner,
+            "run",
+            "dev",
+            "--",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "5173",
+        ]
 
-    backend_proc = subprocess.Popen(backend_cmd, cwd=root / "backend")
-    frontend_proc = subprocess.Popen(frontend_cmd, cwd=root / "frontend")
-    media_proc = subprocess.Popen(media_cmd, cwd=root / "media-server")
+    if media_runner == "yarn":
+        media_cmd = [media_runner, "dev"]
+    else:
+        media_cmd = [media_runner, "run", "dev"]
 
-    procs = [backend_proc, frontend_proc, media_proc]
+    log_line("starting processes")
+    log_line(f"backend  cwd={backend_dir} cmd={fmt_cmd(backend_cmd)}")
+    log_line(f"frontend cwd={frontend_dir} cmd={fmt_cmd(frontend_cmd)}")
+    log_line(f"media    cwd={media_dir} cmd={fmt_cmd(media_cmd)}")
+
+    backend_proc = subprocess.Popen(backend_cmd, cwd=backend_dir)
+    frontend_proc = subprocess.Popen(frontend_cmd, cwd=frontend_dir)
+    media_proc = subprocess.Popen(media_cmd, cwd=media_dir)
+
+    procs = [
+        ("backend", backend_proc),
+        ("frontend", frontend_proc),
+        ("media", media_proc),
+    ]
 
     try:
         while True:
             time.sleep(0.5)
-            for proc in procs:
+            for name, proc in procs:
                 if proc.poll() is not None:
+                    log_line(f"{name} exited with code {proc.returncode}")
                     raise SystemExit(proc.returncode or 0)
     except KeyboardInterrupt:
+        log_line("received Ctrl+C, stopping all processes")
         pass
     finally:
-        for proc in procs:
+        for name, proc in procs:
             if proc.poll() is None:
+                log_line(f"terminating {name} (pid={proc.pid})")
                 proc.terminate()
-        for proc in procs:
+        for name, proc in procs:
             try:
                 proc.wait(timeout=5)
             except Exception:
+                log_line(f"force killing {name} (pid={proc.pid})")
                 proc.kill()
+        log_line("all processes stopped")
 
 
 if __name__ == "__main__":
