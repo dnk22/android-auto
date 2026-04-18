@@ -1,8 +1,20 @@
-import DashboardMainView from "../../components/DashboardMain/DashboardMainView.jsx";
 import { useDashboardMainController } from "./hooks/useDashboardMainController.js";
+import DashboardSummarySection from "./components/DashboardSummarySection.jsx";
+import DashboardLogSection from "./components/DashboardLogSection.jsx";
 
 export default function DashboardMainContainer() {
-  const dashboardMainProps = useDashboardMainController();
+  const {
+    selectedDevice,
+    selectedDeviceInfo,
+    isTestingU2,
+    handleRefreshDevices,
+    handleTestU2OpenSettings,
+  } = useDashboardMainController();
 
-  return <DashboardMainView {...dashboardMainProps} />;
+  return (
+    <main className="flex h-full w-full flex-col gap-4">
+      <DashboardSummarySection selectedDeviceInfo={selectedDeviceInfo} />
+      <DashboardLogSection />
+    </main>
+  );
 }
