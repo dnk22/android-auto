@@ -6,6 +6,7 @@ import { useStore } from "../store/useStore.js";
 const FALLBACK_CODEC = "avc1.42E01E";
 const RECONNECT_DELAY_MS = 1_000;
 const TIMESTAMP_STEP = 1;
+const MAX_DECODE_QUEUE_SIZE = 8;
 
 function parsePrefixedFrame(payload) {
   if (!(payload instanceof Uint8Array) || payload.length < 2) {
@@ -39,6 +40,7 @@ export default function H264Decoder({
   const timestampRef = useRef(0);
   const reconnectTimerRef = useRef(null);
   const hasReceivedKeyFrameRef = useRef(false);
+  const waitingForRecoveryKeyFrameRef = useRef(false);
   const onSocketReadyRef = useRef(onSocketReady);
   const onFrameStateChangeRef = useRef(onFrameStateChange);
   const onPointerDownRef = useRef(onPointerDown);
@@ -83,6 +85,7 @@ export default function H264Decoder({
     let cancelled = false;
     let decoder;
     hasReceivedKeyFrameRef.current = false;
+    waitingForRecoveryKeyFrameRef.current = false;
 
     const clearReconnectTimer = () => {
       if (reconnectTimerRef.current) {
@@ -106,6 +109,7 @@ export default function H264Decoder({
     const resetDecoderState = () => {
       destroyDecoder();
       hasReceivedKeyFrameRef.current = false;
+      waitingForRecoveryKeyFrameRef.current = false;
       timestampRef.current = 0;
     };
 
@@ -163,6 +167,7 @@ export default function H264Decoder({
         error: (error) => {
           console.error(error);
           resetDecoderState();
+          waitingForRecoveryKeyFrameRef.current = true;
           onFrameStateChangeRef.current?.("error");
           setConnectionState("error");
           drawFallback("Decoder error");
@@ -249,6 +254,7 @@ export default function H264Decoder({
               resetDecoderState();
               decoder = createDecoder(codec);
               decoderRef.current = decoder;
+              waitingForRecoveryKeyFrameRef.current = true;
               onFrameStateChangeRef.current?.("connected");
             }
           } catch (error) {
@@ -271,9 +277,12 @@ export default function H264Decoder({
 
         if (isKeyFrame) {
           hasReceivedKeyFrameRef.current = true;
+          if (waitingForRecoveryKeyFrameRef.current) {
+            waitingForRecoveryKeyFrameRef.current = false;
+          }
         }
 
-        if (!hasReceivedKeyFrameRef.current) {
+        if (!hasReceivedKeyFrameRef.current || waitingForRecoveryKeyFrameRef.current) {
           return;
         }
 
@@ -285,6 +294,12 @@ export default function H264Decoder({
           decoder = null;
           decoderRef.current = null;
           hasReceivedKeyFrameRef.current = false;
+          return;
+        }
+
+        if (decoder.decodeQueueSize > MAX_DECODE_QUEUE_SIZE) {
+          waitingForRecoveryKeyFrameRef.current = true;
+          onFrameStateChangeRef.current?.("dropping");
           return;
         }
 

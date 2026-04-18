@@ -46,4 +46,30 @@ export class StreamManager {
   log(message) {
     this.logRelay?.log(message);
   }
+
+  getSessionStats(serial) {
+    const session = this.sessions.get(this.sessionKey(serial));
+    if (!session) {
+      return null;
+    }
+
+    return session.getStatsSnapshot();
+  }
+
+  getHealthSnapshot() {
+    const streams = [];
+    let totalClients = 0;
+
+    for (const session of this.sessions.values()) {
+      const stats = session.getStatsSnapshot();
+      streams.push(stats);
+      totalClients += stats.activeClients;
+    }
+
+    return {
+      streamCount: streams.length,
+      totalClients,
+      streams,
+    };
+  }
 }
