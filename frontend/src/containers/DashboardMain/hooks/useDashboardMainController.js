@@ -46,18 +46,18 @@ export function useDashboardMainController() {
       setIsTestingU2(true);
       await toastAction(
         async () => {
-          await control.tap(selectedDevice, 540, 960);
-          addLog(`U2 test OK: da mo Settings tren ${selectedDevice}`);
+          await control.action(selectedDevice, "home");
+          addLog(`U2 test OK: da gui HOME tren ${selectedDevice}`);
           await refreshDevices();
         },
         {
-          pending: `Đang mở Settings trên ${selectedDevice}...`,
-          success: `Đã mở Settings trên ${selectedDevice}`,
+          pending: `Đang gửi HOME trên ${selectedDevice}...`,
+          success: `Đã gửi HOME trên ${selectedDevice}`,
           error: `U2 test lỗi trên ${selectedDevice}`,
         },
       );
     } catch (error) {
-      const message = `U2 test lỗi trên ${selectedDevice}: ${getErrorMessage(error, "Không thể mở Settings")}`;
+      const message = `U2 test lỗi trên ${selectedDevice}: ${getErrorMessage(error, "Không thể gửi HOME")}`;
       addLog(message);
     } finally {
       setIsTestingU2(false);

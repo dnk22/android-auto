@@ -8,8 +8,15 @@ export interface Session {
   status: SessionStatus;
   scrcpy?: {
     stop: () => Promise<void>;
+    injectPointer: (
+      action: "down" | "move" | "up",
+      xRatio: number,
+      yRatio: number,
+    ) => Promise<void>;
+    injectKey: (key: "back" | "home" | "recents") => Promise<void>;
   };
   clients: Set<WebSocket>;
+  controlClients: Set<WebSocket>;
   configuredClients: WeakSet<WebSocket>;
   videoCodec?: string;
   videoWidth?: number;

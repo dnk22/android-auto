@@ -32,7 +32,7 @@ export default function DashboardMainView({
             disabled={!selectedDevice || isTestingU2}
             className="rounded-full bg-[var(--chip-success-bg)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--chip-success-fg)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isTestingU2 ? "Testing U2..." : "Test U2: Open Settings"}
+            {isTestingU2 ? "Testing U2..." : "Test U2: Send HOME"}
           </button>
         </div>
       </section>

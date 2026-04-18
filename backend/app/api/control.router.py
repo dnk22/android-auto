@@ -9,33 +9,31 @@ from app.schemas.control_schema import BroadcastActionSchema, DeviceActionSchema
 def build_router(device_manager):
     router = APIRouter(tags=["control"])
 
+    key_actions = {"back", "home", "recent", "recents"}
+
     @router.post("/devices/{device_id}/action")
     async def device_action(device_id: str, payload: DeviceActionSchema):
-        if payload.action != "tap":
-            raise HTTPException(status_code=400, detail="Unsupported action")
-        if payload.x is None or payload.y is None:
-            raise HTTPException(status_code=400, detail="x and y are required for tap")
+        if payload.action in key_actions:
+            try:
+                await device_manager.perform_action(device_id, payload.action)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-        try:
-            await device_manager.perform_tap(device_id, payload.x, payload.y)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            return {"ok": True, "message": f"{payload.action}_sent"}
 
-        return {"ok": True, "message": "tap_sent"}
+        raise HTTPException(status_code=400, detail="Unsupported action")
 
     @router.post("/devices/broadcast-action")
     async def broadcast_action(payload: BroadcastActionSchema):
-        if payload.action != "tap":
+        if payload.action not in key_actions:
             raise HTTPException(status_code=400, detail="Unsupported action")
-        if payload.x is None or payload.y is None:
-            raise HTTPException(status_code=400, detail="x and y are required for tap")
 
         sent = 0
         for device in device_manager.list_devices():
             if payload.only_connected and not device.u2:
                 continue
             try:
-                await device_manager.perform_tap(device.device_id, payload.x, payload.y)
+                await device_manager.perform_action(device.device_id, payload.action)
                 sent += 1
             except ValueError:
                 continue

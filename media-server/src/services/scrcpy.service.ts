@@ -23,7 +23,65 @@ interface StreamHandlers {
 
 export interface ScrcpyRuntime {
   stop: () => Promise<void>;
+  injectPointer: (
+    action: "down" | "move" | "up",
+    xRatio: number,
+    yRatio: number,
+  ) => Promise<void>;
+  injectKey: (key: "back" | "home" | "recents") => Promise<void>;
 }
+
+const MOTION_ACTION_DOWN = 0 as const;
+const MOTION_ACTION_UP = 1 as const;
+const MOTION_ACTION_MOVE = 2 as const;
+
+const KEY_ACTION_DOWN = 0 as const;
+const KEY_ACTION_UP = 1 as const;
+const KEY_META_NONE = 0 as const;
+
+const KEY_CODE_BACK = 4 as const;
+const KEY_CODE_HOME = 3 as const;
+const KEY_CODE_RECENTS = 187 as const;
+
+const clampRatio = (value: number): number => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  if (value < 0) {
+    return 0;
+  }
+
+  if (value > 1) {
+    return 1;
+  }
+
+  return value;
+};
+
+const toTouchAction = (action: "down" | "move" | "up"): 0 | 1 | 2 => {
+  if (action === "down") {
+    return MOTION_ACTION_DOWN;
+  }
+
+  if (action === "move") {
+    return MOTION_ACTION_MOVE;
+  }
+
+  return MOTION_ACTION_UP;
+};
+
+const toKeyCode = (key: "back" | "home" | "recents"): 3 | 4 | 187 => {
+  if (key === "back") {
+    return KEY_CODE_BACK;
+  }
+
+  if (key === "home") {
+    return KEY_CODE_HOME;
+  }
+
+  return KEY_CODE_RECENTS;
+};
 
 interface ScrcpyModules {
   AdbServerClient: typeof import("@yume-chan/adb").AdbServerClient;
@@ -105,7 +163,7 @@ export class ScrcpyService {
           tunnelForward: true,
 
           audio: false,
-          control: false,
+          control: true,
           cleanup: false,
         },
         {
@@ -138,6 +196,13 @@ export class ScrcpyService {
       await client.close();
       await adb.close();
       throw new Error("scrcpy_video_stream_unavailable");
+    }
+
+    const controller = client.controller;
+    if (!controller) {
+      await client.close();
+      await adb.close();
+      throw new Error("scrcpy_control_stream_unavailable");
     }
 
     handlers.onConfig({
@@ -226,6 +291,41 @@ export class ScrcpyService {
         await outputReader.cancel();
         await client.close();
         await adb.close();
+      },
+      injectPointer: async (action, xRatio, yRatio) => {
+        const width = Math.max(1, video.width);
+        const height = Math.max(1, video.height);
+
+        const xPx = Math.min(width - 1, Math.floor(clampRatio(xRatio) * width));
+        const yPx = Math.min(height - 1, Math.floor(clampRatio(yRatio) * height));
+        const isUp = action === "up";
+
+        await controller.injectTouch({
+          action: toTouchAction(action),
+          pointerId: 0n,
+          pointerX: xPx,
+          pointerY: yPx,
+          videoWidth: width,
+          videoHeight: height,
+          pressure: isUp ? 0 : 1,
+          actionButton: 1,
+          buttons: isUp ? 0 : 1,
+        });
+      },
+      injectKey: async (key) => {
+        const keyCode = toKeyCode(key);
+        await controller.injectKeyCode({
+          action: KEY_ACTION_DOWN,
+          keyCode,
+          repeat: 0,
+          metaState: KEY_META_NONE,
+        });
+        await controller.injectKeyCode({
+          action: KEY_ACTION_UP,
+          keyCode,
+          repeat: 0,
+          metaState: KEY_META_NONE,
+        });
       },
     };
   }

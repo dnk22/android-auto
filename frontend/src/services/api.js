@@ -3,7 +3,6 @@ import {
   disconnectDeviceApi,
   fetchDevices,
 } from "../api/device.api.ts";
-import { sendDeviceAction } from "../api/control.api.ts";
 
 export async function connectDevice(deviceId) {
   await connectDeviceApi(deviceId);
@@ -31,11 +30,9 @@ export async function connectAllDevices() {
 }
 
 export async function startJob(deviceId) {
-  await sendDeviceAction(deviceId, { action: "tap", x: 540, y: 960 });
   return { ok: true };
 }
 
 export async function testU2OpenSettings(deviceId) {
-  await sendDeviceAction(deviceId, { action: "tap", x: 540, y: 960 });
   return { ok: true };
 }

@@ -5,6 +5,7 @@ import { ScrcpyService } from "./services/scrcpy.service";
 import { SessionManager } from "./services/sessionManager.service";
 import { ThumbnailService } from "./services/thumbnail.service";
 import { createStreamGateway } from "./ws/stream.gateway";
+import { createControlGateway } from "./ws/control.gateway";
 import { log } from "./utils/logger";
 
 const scrcpyService = new ScrcpyService();
@@ -15,6 +16,7 @@ const app = createApp(sessionManager);
 const server = http.createServer(app);
 
 createStreamGateway(server, sessionManager);
+createControlGateway(server, sessionManager);
 thumbnailService.start();
 
 server.listen(config.port, config.host, () => {

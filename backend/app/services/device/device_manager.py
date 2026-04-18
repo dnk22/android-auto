@@ -229,12 +229,23 @@ class DeviceManager:
             return True
         return is_stale(device.last_frame_at, self._stale_after_sec)
 
-    async def perform_tap(self, device_id: str, x: int, y: int) -> None:
+    async def perform_action(self, device_id: str, action: str) -> None:
         async with self._locks.device(device_id):
             device = self._devices.get(device_id)
             if device is None or not device.u2:
                 raise ValueError("Device is not connected to u2")
-            await self._controller.tap(device_id, x, y)
+
+            if action == "back":
+                await self._controller.back(device_id)
+                return
+            if action == "home":
+                await self._controller.home(device_id)
+                return
+            if action in ("recent", "recents"):
+                await self._controller.recents(device_id)
+                return
+
+            raise ValueError(f"Unsupported action: {action}")
 
     async def _delayed_stop(self, device_id: str) -> None:
         try:

@@ -7,8 +7,8 @@ export function useControl(): {
   disconnect: (deviceId: string) => Promise<void>;
   connectAll: () => Promise<void>;
   disconnectAll: (deviceIds: string[]) => Promise<void>;
-  tap: (deviceId: string, x: number, y: number) => Promise<void>;
-  broadcastTap: (x: number, y: number) => Promise<void>;
+  action: (deviceId: string, action: "back" | "home" | "recents") => Promise<void>;
+  broadcastAction: (action: "back" | "home" | "recents") => Promise<void>;
 } {
   return useMemo(
     () => ({
@@ -22,10 +22,10 @@ export function useControl(): {
       disconnectAll: async (deviceIds: string[]) => {
         await Promise.all(deviceIds.map((deviceId) => disconnectDeviceApi(deviceId)));
       },
-      tap: (deviceId: string, x: number, y: number) =>
-        sendDeviceAction(deviceId, { action: "tap", x, y }),
-      broadcastTap: (x: number, y: number) =>
-        sendBroadcastAction({ action: "tap", x, y, only_connected: true }),
+      action: (deviceId: string, action: "back" | "home" | "recents") =>
+        sendDeviceAction(deviceId, { action }),
+      broadcastAction: (action: "back" | "home" | "recents") =>
+        sendBroadcastAction({ action, only_connected: true }),
     }),
     [],
   );

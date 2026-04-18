@@ -27,7 +27,6 @@ export const createStreamGateway = (server: HttpServer, sessionManager: SessionM
     const deviceId = parseDeviceId(requestUrl.pathname);
 
     if (!deviceId) {
-      socket.destroy();
       return;
     }
 

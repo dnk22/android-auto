@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DeviceActionSchema(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     action: str
-    x: int | None = None
-    y: int | None = None
 
 
 class BroadcastActionSchema(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     action: str
-    x: int | None = None
-    y: int | None = None
     only_connected: bool = Field(default=True)
