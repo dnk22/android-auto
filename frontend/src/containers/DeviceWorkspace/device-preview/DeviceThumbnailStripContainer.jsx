@@ -1,4 +1,4 @@
-import ThumbPollingImage from "../../../components/ThumbPollingImage.jsx";
+import ThumbPollingImage from "../../../components/DevicePreview/ThumbPollingImage.jsx";
 import { useDeviceThumbnailStripController } from "./hooks/useDeviceThumbnailStripController.js";
 
 export default function DeviceThumbnailStripContainer() {
@@ -56,9 +56,6 @@ export default function DeviceThumbnailStripContainer() {
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-2">
                     <div className="truncate text-[10px] font-semibold text-white">
                       {device.id}
-                    </div>
-                    <div className="text-[9px] uppercase tracking-[0.08em] text-slate-200">
-                      {device.state}
                     </div>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { fetchThumbImage } from "../services/mediaStream.js";
+import { fetchThumbImage } from "../../services/mediaStream.js";
 
 const THUMB_POLL_MS = 5000;
 
