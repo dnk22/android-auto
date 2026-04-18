@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 import asyncio
-from typing import Any, Set
+from collections.abc import Iterable
 
 from fastapi import WebSocket
 
+from app.core.events import DeviceUpdateEvent
 
-class WebSocketManager:
+
+class WSManager:
     def __init__(self) -> None:
-        self._connections: Set[WebSocket] = set()
+        self._connections: set[WebSocket] = set()
         self._lock = asyncio.Lock()
 
     async def connect(self, websocket: WebSocket) -> None:
@@ -18,27 +22,13 @@ class WebSocketManager:
         async with self._lock:
             self._connections.discard(websocket)
 
-    async def broadcast(self, message: str) -> None:
-        async with self._lock:
-            targets = list(self._connections)
-
+    async def broadcast(self, event: DeviceUpdateEvent) -> None:
         stale: list[WebSocket] = []
-        for websocket in targets:
-            try:
-                await websocket.send_text(message)
-            except Exception:
-                stale.append(websocket)
+        payload = event.model_dump(mode="json")
 
-        if stale:
-            async with self._lock:
-                for websocket in stale:
-                    self._connections.discard(websocket)
-
-    async def broadcast_json(self, payload: Any) -> None:
         async with self._lock:
-            targets = list(self._connections)
+            targets: Iterable[WebSocket] = tuple(self._connections)
 
-        stale: list[WebSocket] = []
         for websocket in targets:
             try:
                 await websocket.send_json(payload)

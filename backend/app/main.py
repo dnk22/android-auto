@@ -1,54 +1,104 @@
-import asyncio
+from __future__ import annotations
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import importlib.util
+from pathlib import Path
+from types import ModuleType
 
-from app.api.routes_device import router as device_router
-from app.api.routes_job import router as job_router
-from app.api.routes_ws import router as ws_router
-from app.services.device_monitor import DeviceMonitor
-from app.services.device_realtime import device_ws_manager
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-app = FastAPI(title="Android Automation Backend")
+from app.core.config import load_settings
+from app.core.state import AppContainer
+from app.services.device.adb_watcher import AdbWatcher
+from app.services.device.controller import DeviceController
+from app.services.device.device_manager import DeviceManager
+from app.services.logging.logger import JsonLogger
+from app.services.media.media_client import MediaClient
+from app.services.media.scheduler import MediaScheduler
+from app.services.ws.ws_manager import WSManager
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
-app.include_router(device_router)
-app.include_router(job_router)
-app.include_router(ws_router)
 
-device_monitor_task: asyncio.Task | None = None
+def _load_module(file_path: Path, module_name: str) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Failed to load module: {file_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+
+def _build_container() -> AppContainer:
+    settings = load_settings()
+    logger = JsonLogger()
+    ws_manager = WSManager()
+    media_client = MediaClient(settings)
+    media_scheduler = MediaScheduler(settings.media_nodes)
+    controller = DeviceController(logger)
+    device_manager = DeviceManager(
+        ws_manager=ws_manager,
+        media_client=media_client,
+        media_scheduler=media_scheduler,
+        controller=controller,
+        logger=logger,
+        stale_after_sec=settings.stream_stale_after_sec,
+        disconnect_grace_sec=settings.disconnect_grace_sec,
+    )
+    adb_watcher = AdbWatcher(
+        manager=device_manager,
+        logger=logger,
+        poll_interval_sec=settings.adb_poll_interval_sec,
+    )
+    return AppContainer(
+        settings=settings,
+        logger=logger,
+        ws_manager=ws_manager,
+        media_client=media_client,
+        media_scheduler=media_scheduler,
+        device_controller=controller,
+        device_manager=device_manager,
+        adb_watcher=adb_watcher,
+    )
+
+
+
+def _include_routers(app: FastAPI, container: AppContainer) -> None:
+    base = Path(__file__).resolve().parent / "api"
+
+    device_router_mod = _load_module(base / "device.router.py", "device_router")
+    control_router_mod = _load_module(base / "control.router.py", "control_router")
+    stream_router_mod = _load_module(base / "stream.router.py", "stream_router")
+    health_router_mod = _load_module(base / "health.router.py", "health_router")
+
+    app.include_router(device_router_mod.build_router(container.device_manager))
+    app.include_router(control_router_mod.build_router(container.device_manager))
+    app.include_router(
+        stream_router_mod.build_router(container.device_manager, container.media_client)
+    )
+    app.include_router(health_router_mod.build_router())
+
+
+container = _build_container()
+app = FastAPI(title="Phone Farm Orchestrator")
+_include_routers(app, container)
+
+
+@app.websocket("/ws/devices")
+async def devices_ws(websocket: WebSocket) -> None:
+    await container.ws_manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        await container.ws_manager.disconnect(websocket)
 
 
 @app.on_event("startup")
-async def startup_event() -> None:
-    global device_monitor_task
-    if device_monitor_task is None or device_monitor_task.done():
-        monitor = DeviceMonitor(device_ws_manager)
-        device_monitor_task = asyncio.create_task(
-            monitor.run()
-        )
+async def on_startup() -> None:
+    await container.adb_watcher.start()
 
 
 @app.on_event("shutdown")
-async def shutdown_event() -> None:
-    global device_monitor_task
-    if device_monitor_task is None:
-        return
-    device_monitor_task.cancel()
-    try:
-        await device_monitor_task
-    except asyncio.CancelledError:
-        pass
-    device_monitor_task = None
-
-
-@app.get("/")
-async def root():
-    return {"status": "ok"}
+async def on_shutdown() -> None:
+    await container.adb_watcher.stop()
+    await container.media_client.close()
