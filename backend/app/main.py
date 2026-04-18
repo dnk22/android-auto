@@ -93,6 +93,17 @@ async def devices_ws(websocket: WebSocket) -> None:
         await container.ws_manager.disconnect(websocket)
 
 
+@app.websocket("/ws/logs")
+async def logs_ws(websocket: WebSocket) -> None:
+    await container.ws_manager.connect_logs(websocket)
+    try:
+        while True:
+            message = await websocket.receive_text()
+            await container.ws_manager.broadcast_log(message)
+    except WebSocketDisconnect:
+        await container.ws_manager.disconnect_logs(websocket)
+
+
 @app.on_event("startup")
 async def on_startup() -> None:
     await container.adb_watcher.start()
