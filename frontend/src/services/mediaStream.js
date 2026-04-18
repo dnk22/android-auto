@@ -1,9 +1,22 @@
-const STREAM_WS_URL =
+const STREAM_WS_URL_RAW =
   import.meta.env.VITE_STREAM_WS_URL || "ws://localhost:3001";
+
+const STREAM_WS_URL = STREAM_WS_URL_RAW.replace(/\/+$/, "");
+
+const STREAM_HTTP_URL_RAW =
+  import.meta.env.VITE_STREAM_HTTP_URL ||
+  STREAM_WS_URL.replace(/^ws:/i, "http:").replace(/^wss:/i, "https:");
+
+const STREAM_HTTP_URL = STREAM_HTTP_URL_RAW.replace(/\/+$/, "");
 
 export function buildStreamUrl(serial, type) {
   const params = new URLSearchParams({ profile: type, type });
-  return `${STREAM_WS_URL}/stream/${encodeURIComponent(serial)}?${params.toString()}`;
+  const streamPath = type === "main" ? "stream/main" : "stream";
+  return `${STREAM_WS_URL}/${streamPath}/${encodeURIComponent(serial)}?${params.toString()}`;
+}
+
+export function buildThumbUrl(serial) {
+  return `${STREAM_HTTP_URL}/stream/thumb/${encodeURIComponent(serial)}`;
 }
 
 export function createStreamSocket(serial, type, handlers = {}) {
@@ -35,4 +48,18 @@ export function sendVirtualButton(socket, action, payload = {}) {
     action,
     ...payload,
   });
+}
+
+export async function fetchThumbImage(serial, options = {}) {
+  const response = await fetch(buildThumbUrl(serial), {
+    method: "GET",
+    cache: "no-store",
+    signal: options.signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`thumb_request_failed:${response.status}`);
+  }
+
+  return response.blob();
 }

@@ -3,21 +3,6 @@ from typing import Dict
 
 from app.services.device_manager import device_manager
 from app.services.websocket_manager import WebSocketManager
-
-
-def parse_track_devices_snapshot(lines: list[str]) -> Dict[str, str]:
-    snapshot: Dict[str, str] = {}
-    for raw_line in lines:
-        line = raw_line.strip()
-        if not line or line.startswith("List of devices attached"):
-            continue
-        if "\t" not in line:
-            continue
-        device_id, status = line.split("\t", 1)
-        snapshot[device_id.strip()] = status.strip()
-    return snapshot
-
-
 class DeviceMonitor:
     def __init__(self, ws_manager: WebSocketManager) -> None:
         self.ws_manager = ws_manager
@@ -43,41 +28,18 @@ class DeviceMonitor:
         device_manager.set_adb_snapshot(snapshot)
         await self._broadcast_changes()
 
-    async def adb_event_listener(self) -> None:
-        process = await asyncio.create_subprocess_exec(
-            "adb",
-            "track-devices",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-        )
-
-        if process.stdout is None:
-            return
-
-        block: list[str] = []
-        while True:
-            line = await process.stdout.readline()
-            if not line:
-                break
-
-            decoded = line.decode("utf-8", errors="replace").rstrip("\n")
-            if decoded.strip() == "":
-                snapshot = parse_track_devices_snapshot(block)
-                block = []
-                await self.on_snapshot(snapshot)
-                continue
-
-            block.append(decoded)
-
-        await process.wait()
+    async def poll_devices(self) -> None:
+        await self.on_snapshot(device_manager.list_adb_devices_with_status())
 
     async def run(self) -> None:
         await self.on_snapshot(device_manager.list_adb_devices_with_status())
         while True:
             try:
-                await self.adb_event_listener()
+                await self.poll_devices()
             except Exception:
-                await asyncio.sleep(1)
+                pass
+
+            await asyncio.sleep(1)
 
 
 device_monitor: DeviceMonitor | None = None

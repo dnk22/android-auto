@@ -11,6 +11,7 @@
     "@yume-chan/adb": "^2.1.0",
     "@yume-chan/adb-server-node-tcp": "^2.1.0",
     "@yume-chan/scrcpy": "^2.1.0",
+    "sharp": "^0.34.5",
     "ws": "^8.18.0"
   }
 }

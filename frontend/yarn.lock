@@ -515,6 +515,74 @@
     "@types/babel__core" "^7.20.5"
     react-refresh "^0.17.0"
 
+"@yume-chan/async@^4.0.2", "@yume-chan/async@^4.1.3":
+  version "4.1.3"
+  resolved "https://registry.yarnpkg.com/@yume-chan/async/-/async-4.1.3.tgz#7f4b6d3b1bc902f7ef225a5ade39796f56ccd589"
+  integrity sha512-0vzhNJMkWUPyjKzUK4rqHEeCU6YQtF78RsB1kFRB6Y2BLupmEQNxcSb0mjKabPL9jZpCCiLa5KL8oTOJClUVaw==
+
+"@yume-chan/event@^2.0.0":
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/@yume-chan/event/-/event-2.0.0.tgz#8ee6c8ec100acdbff1f78dc6398da69ad6ca1b9b"
+  integrity sha512-z56MDOcX1QlgLUCuA6th3r10negVb7A3gzY//TwSC9ZOvzuRlrAqXcxZf1T3hHfNMk/NFO9RIgQgegXYSfaqLw==
+  dependencies:
+    "@yume-chan/async" "^4.0.2"
+
+"@yume-chan/no-data-view@^2.0.0":
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/@yume-chan/no-data-view/-/no-data-view-2.0.0.tgz#4498754388d18b3acb10152c10371c0f1080da95"
+  integrity sha512-0GRJrrt6wtZlbiE92jocHOnaAvjQ+Y7xwwhwOPqLkwf90Kj1JIHJ5Zh4wJVQSQIkzfRSOpM+jeEQdC2K15snlA==
+
+"@yume-chan/scrcpy-decoder-tinyh264@^2.1.0":
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/@yume-chan/scrcpy-decoder-tinyh264/-/scrcpy-decoder-tinyh264-2.1.0.tgz#aaa13ec9a5d2b340eb9bd15fafa1a1615379c7f3"
+  integrity sha512-Ou2ejwUZEUlwyorqzjzN6Y3YqMZvAmUi2jK9QsPBbQIVDYu/kbql5l5aXJzatgURTmxbf5HvGnOuEDFzJMqGsQ==
+  dependencies:
+    "@yume-chan/async" "^4.1.3"
+    "@yume-chan/event" "^2.0.0"
+    "@yume-chan/scrcpy" "^2.1.0"
+    "@yume-chan/stream-extra" "^2.1.0"
+    tinyh264 "^0.0.7"
+    yuv-buffer "^1.0.1"
+    yuv-canvas "^1.3.0"
+
+"@yume-chan/scrcpy-decoder-webcodecs@^2.5.3":
+  version "2.5.3"
+  resolved "https://registry.yarnpkg.com/@yume-chan/scrcpy-decoder-webcodecs/-/scrcpy-decoder-webcodecs-2.5.3.tgz#d1f2fbe10a0bcfb68411288c4ed1a1f32efc1ed9"
+  integrity sha512-iHKKVrEd0JP1x4+MSkKKD6beiwf9wqViGdAzvXTb3BMTYyvJXoihiESaUDVDkesGp2n+mtEKQ237V02wbzkmcw==
+  dependencies:
+    "@yume-chan/async" "^4.1.3"
+    "@yume-chan/event" "^2.0.0"
+    "@yume-chan/no-data-view" "^2.0.0"
+    "@yume-chan/scrcpy" "^2.3.0"
+    "@yume-chan/scrcpy-decoder-tinyh264" "^2.1.0"
+    "@yume-chan/stream-extra" "^2.5.3"
+
+"@yume-chan/scrcpy@^2.1.0", "@yume-chan/scrcpy@^2.3.0":
+  version "2.3.0"
+  resolved "https://registry.yarnpkg.com/@yume-chan/scrcpy/-/scrcpy-2.3.0.tgz#4ea1630c3cf6cd09cbeafeac97c2b103d5125893"
+  integrity sha512-rpsNvy7H8mf6gVsWYRSkIXmk0wVsP3XOdw3kASokwZkSWtygB2Z1wjoPaEAvaayVCjsz+y/YfG35TOcykEihGw==
+  dependencies:
+    "@yume-chan/async" "^4.1.3"
+    "@yume-chan/no-data-view" "^2.0.0"
+    "@yume-chan/stream-extra" "^2.1.0"
+    "@yume-chan/struct" "^2.0.1"
+
+"@yume-chan/stream-extra@^2.1.0", "@yume-chan/stream-extra@^2.5.3":
+  version "2.5.3"
+  resolved "https://registry.yarnpkg.com/@yume-chan/stream-extra/-/stream-extra-2.5.3.tgz#21372f10daec35e17ec47d36b7a289719ffdc73a"
+  integrity sha512-eRZcl0+SMIt/cAp9UZfBbh74mYe+DZf5l3C6eX8zYYA1cx71nZce2NCf8Vp+/XNw3UtPaEz6IiES9o7Ax5xJdg==
+  dependencies:
+    "@yume-chan/async" "^4.1.3"
+    "@yume-chan/struct" "^2.3.2"
+
+"@yume-chan/struct@^2.0.1", "@yume-chan/struct@^2.3.2":
+  version "2.3.2"
+  resolved "https://registry.yarnpkg.com/@yume-chan/struct/-/struct-2.3.2.tgz#09a42256441e4c8afb2a46c385ca5b87c34368a8"
+  integrity sha512-afoCnSKV+5HRK7e4innVd9YTYDyNWdjA1CVQa1j8rWYnmr7HGZfdkHMQr+AESLk6GxWFMzOIPQIG6nYOTGMFIw==
+  dependencies:
+    "@yume-chan/async" "^4.1.3"
+    "@yume-chan/no-data-view" "^2.0.0"
+
 any-promise@^1.0.0:
   version "1.3.0"
   resolved "https://registry.yarnpkg.com/any-promise/-/any-promise-1.3.0.tgz#abc6afeedcea52e809cdc0376aed3ce39635d17f"
@@ -1150,6 +1218,11 @@ tinyglobby@^0.2.11:
     fdir "^6.5.0"
     picomatch "^4.0.4"
 
+tinyh264@^0.0.7:
+  version "0.0.7"
+  resolved "https://registry.yarnpkg.com/tinyh264/-/tinyh264-0.0.7.tgz#33dd85966895814bd3225042eac381b9ab54cff9"
+  integrity sha512-etkBRgYkSFBdAi2Cqk4sZgi+xWs/vhzNgvjO3z2i4WILeEmORiNqxuQ4URJatrWQ9LPNV3WPWAtzsh/LA/XL/g==
+
 to-regex-range@^5.0.1:
   version "5.0.1"
   resolved "https://registry.yarnpkg.com/to-regex-range/-/to-regex-range-5.0.1.tgz#1648c44aae7c8d988a326018ed72f5b4dd0392e4"
@@ -1195,6 +1268,16 @@ yallist@^3.0.2:
   version "3.1.1"
   resolved "https://registry.yarnpkg.com/yallist/-/yallist-3.1.1.tgz#dbb7daf9bfd8bac9ab45ebf602b8cbad0d5d08fd"
   integrity sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==
+
+yuv-buffer@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/yuv-buffer/-/yuv-buffer-1.0.1.tgz#cf72019cb360df312c5c6807f8b649fcd9516072"
+  integrity sha512-1clmBXOyTX2R8OG0vaTFu5yP/C2XG4ULe+2HUu7c/aYE1fWpKvkGEzqMhUjknXp1Ts6Xfrc0YtIBbYxvaau38Q==
+
+yuv-canvas@^1.3.0:
+  version "1.3.0"
+  resolved "https://registry.yarnpkg.com/yuv-canvas/-/yuv-canvas-1.3.0.tgz#c22d494a311829ebd3461614dcb258c1437f26c1"
+  integrity sha512-zwl+lJgy23iTyCCUZbi0IRP+WezeKNeGEFU+a0gmtVRa81zL6mKJVxr+NKzlveJ2okz4aIOUEPrTs6yjuPt+Cg==
 
 zustand@^4.5.5:
   version "4.5.7"

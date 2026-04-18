@@ -1,4 +1,4 @@
-import H264Decoder from "../../../components/H264Decoder.jsx";
+import ThumbPollingImage from "../../../components/ThumbPollingImage.jsx";
 import { useDeviceThumbnailStripController } from "./hooks/useDeviceThumbnailStripController.js";
 
 export default function DeviceThumbnailStripContainer() {
@@ -49,11 +49,9 @@ export default function DeviceThumbnailStripContainer() {
                 }`}
               >
                 <div className="relative h-full w-full overflow-hidden rounded-xl bg-[#0f172a]">
-                  <H264Decoder
+                  <ThumbPollingImage
                     serial={device.id}
-                    type="thumb"
-                    className="absolute inset-0 h-full w-full"
-                    onFrameStateChange={() => null}
+                    className="absolute inset-0 h-full w-full object-cover"
                   />
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-2">
                     <div className="truncate text-[10px] font-semibold text-white">
