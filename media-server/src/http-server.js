@@ -1,7 +1,7 @@
 import http from "node:http";
 
 export function createHealthServer(options = {}) {
-  const { onRequest, getHealthPayload } = options;
+  const { onRequest } = options;
 
   return http.createServer(async (request, response) => {
     response.setHeader("Access-Control-Allow-Origin", "*");
@@ -15,16 +15,8 @@ export function createHealthServer(options = {}) {
     }
 
     if (request.url === "/health") {
-      const extraPayload =
-        typeof getHealthPayload === "function" ? await getHealthPayload() : {};
       response.writeHead(200, { "Content-Type": "application/json" });
-      response.end(
-        JSON.stringify({
-          ok: true,
-          ts: Date.now(),
-          ...extraPayload,
-        })
-      );
+      response.end(JSON.stringify({ ok: true }));
       return;
     }
 

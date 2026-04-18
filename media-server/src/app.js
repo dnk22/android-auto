@@ -23,50 +23,9 @@ export function startMediaServer(port = MEDIA_SERVER_PORT) {
   const logRelay = new LogRelay();
   const manager = new StreamManager(logRelay);
   const server = createHealthServer({
-    getHealthPayload: () => {
-      const health = manager.getHealthSnapshot();
-      return {
-        mediaServer: {
-          streamCount: health.streamCount,
-          totalClients: health.totalClients,
-        },
-      };
-    },
     onRequest: async (request, response, requestUrl) => {
       if (request.method !== "GET") {
         return false;
-      }
-
-      if (requestUrl.pathname === "/health/streams") {
-        response.writeHead(200, { "Content-Type": "application/json" });
-        response.end(
-          JSON.stringify({
-            ok: true,
-            ts: Date.now(),
-            ...manager.getHealthSnapshot(),
-          })
-        );
-        return true;
-      }
-
-      if (requestUrl.pathname.startsWith("/health/stream/")) {
-        const serial = decodeURIComponent(requestUrl.pathname.replace("/health/stream/", ""));
-        const stats = manager.getSessionStats(serial);
-        if (!stats) {
-          response.writeHead(404, { "Content-Type": "application/json" });
-          response.end(JSON.stringify({ error: "stream_not_found", serial }));
-          return true;
-        }
-
-        response.writeHead(200, { "Content-Type": "application/json" });
-        response.end(
-          JSON.stringify({
-            ok: true,
-            ts: Date.now(),
-            stream: stats,
-          })
-        );
-        return true;
       }
 
       if (!requestUrl.pathname.startsWith("/stream/thumb/")) {

@@ -23,22 +23,6 @@ export class StreamSession {
     this.lastKeyFrame = null;
     this.latestFrame = null;
     this.isStopping = false;
-    this.stats = {
-      startedAt: Date.now(),
-      lastFrameAt: null,
-      lastConfigAt: null,
-      lastErrorAt: null,
-      lastErrorMessage: null,
-      framesReceived: 0,
-      keyFramesReceived: 0,
-      bytesReceived: 0,
-      framesBroadcast: 0,
-      broadcastSamples: 0,
-      broadcastLatencyMsTotal: 0,
-      maxBroadcastLatencyMs: 0,
-      maxBufferedAmountBytes: 0,
-      slowClients: 0,
-    };
   }
 
   async attach(websocket) {
@@ -92,7 +76,6 @@ export class StreamSession {
 
     this.bridge.on("config", (config) => {
       this.bridgeConfig = config;
-      this.stats.lastConfigAt = Date.now();
       this.deviceSize = {
         width: Number(config?.width || this.deviceSize.width || 1080),
         height: Number(config?.height || this.deviceSize.height || 1920),
@@ -124,8 +107,6 @@ export class StreamSession {
     });
 
     this.bridge.on("error", (error) => {
-      this.stats.lastErrorAt = Date.now();
-      this.stats.lastErrorMessage = error?.message || String(error);
       this.broadcastJson({
         type: "stream_error",
         data: {
@@ -192,42 +173,20 @@ export class StreamSession {
     }
 
     const isKeyFrame = Boolean(frameMeta?.isKeyFrame);
-    const start = process.hrtime.bigint();
 
     const payload = Buffer.concat([Buffer.from([isKeyFrame ? 1 : 0]), rawPayload]);
 
     this.latestFrame = payload;
-    this.stats.framesReceived += 1;
-    this.stats.bytesReceived += payload.length;
-    this.stats.lastFrameAt = Date.now();
 
     if (isKeyFrame) {
       this.lastKeyFrame = payload;
-      this.stats.keyFramesReceived += 1;
     }
 
-    let maxBufferedAmount = 0;
-    let slowClients = 0;
     for (const client of this.clients) {
       if (client.readyState === WebSocket.OPEN) {
         client.send(payload);
-        const bufferedAmount = Number(client.bufferedAmount || 0);
-        if (bufferedAmount > maxBufferedAmount) {
-          maxBufferedAmount = bufferedAmount;
-        }
-        if (bufferedAmount > 1_000_000) {
-          slowClients += 1;
-        }
       }
     }
-
-    const elapsedMs = Number(process.hrtime.bigint() - start) / 1_000_000;
-    this.stats.framesBroadcast += 1;
-    this.stats.broadcastSamples += 1;
-    this.stats.broadcastLatencyMsTotal += elapsedMs;
-    this.stats.maxBroadcastLatencyMs = Math.max(this.stats.maxBroadcastLatencyMs, elapsedMs);
-    this.stats.maxBufferedAmountBytes = Math.max(this.stats.maxBufferedAmountBytes, maxBufferedAmount);
-    this.stats.slowClients = slowClients;
   }
 
   getLatestFrame() {
@@ -279,33 +238,5 @@ export class StreamSession {
     const x = clamp01(Number(payload.x ?? 0.5));
     const y = clamp01(Number(payload.y ?? 0.5));
     await this.bridge.injectTouch(action, x, y, Number(payload.pointerId || 0));
-  }
-
-  getStatsSnapshot() {
-    const avgBroadcastLatencyMs =
-      this.stats.broadcastSamples > 0
-        ? this.stats.broadcastLatencyMsTotal / this.stats.broadcastSamples
-        : 0;
-
-    return {
-      serial: this.serial,
-      activeClients: this.clients.size,
-      bridgeStarted: this.bridgeStarted,
-      deviceSize: this.deviceSize,
-      codec: this.bridgeConfig?.codec || null,
-      startedAt: this.stats.startedAt,
-      lastFrameAt: this.stats.lastFrameAt,
-      lastConfigAt: this.stats.lastConfigAt,
-      lastErrorAt: this.stats.lastErrorAt,
-      lastErrorMessage: this.stats.lastErrorMessage,
-      framesReceived: this.stats.framesReceived,
-      keyFramesReceived: this.stats.keyFramesReceived,
-      bytesReceived: this.stats.bytesReceived,
-      framesBroadcast: this.stats.framesBroadcast,
-      averageBroadcastLatencyMs: Number(avgBroadcastLatencyMs.toFixed(3)),
-      maxBroadcastLatencyMs: Number(this.stats.maxBroadcastLatencyMs.toFixed(3)),
-      maxWsBufferedAmountBytes: this.stats.maxBufferedAmountBytes,
-      slowClients: this.stats.slowClients,
-    };
   }
 }
