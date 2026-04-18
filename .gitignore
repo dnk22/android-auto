@@ -32,6 +32,7 @@ frontend/.vite/
 frontend/coverage/
 media-server/dist/
 media-server/coverage/
+media-server/dist/
 
 # Runtime logs
 *.log
