@@ -13,6 +13,9 @@ export function useSidebarController() {
   const devices = useStore((state) => state.devices);
   const setDevices = useStore((state) => state.setDevices);
   const setSelectedDevice = useStore((state) => state.setSelectedDevice);
+  const setSelectedStreamDevice = useStore(
+    (state) => state.setSelectedStreamDevice,
+  );
   const selectedDevice = useStore((state) => state.selectedDevice);
   const addLog = useStore((state) => state.addLog);
   const theme = useStore((state) => state.theme);
@@ -24,8 +27,10 @@ export function useSidebarController() {
 
   const refreshDevices = async () => {
     const response = await listDevices();
-    setDevices(response.devices || []);
+    const nextDevices = response.devices || [];
+    setDevices(nextDevices);
     addLog("Đã cập nhật danh sách thiết bị");
+    return nextDevices;
   };
 
   const handleRefreshDevices = async () => {
@@ -94,7 +99,29 @@ export function useSidebarController() {
       await toastAction(
         async () => {
           await connectAllDevices();
-          await refreshDevices();
+          const refreshedDevices = await refreshDevices();
+          const previewDevices = refreshedDevices.filter(
+            (device) => String(device.u2_status).toLowerCase() === "connected",
+          );
+          const firstPreviewDevice = previewDevices[0];
+
+          if (firstPreviewDevice) {
+            const currentState = useStore.getState();
+            const hasSelectedPreviewDevice = previewDevices.some(
+              (device) => device.id === currentState.selectedDevice,
+            );
+
+            if (!hasSelectedPreviewDevice) {
+              setSelectedDevice(firstPreviewDevice.id);
+
+              const hasSelectedStreamDevice = previewDevices.some(
+                (device) => device.id === currentState.selectedStreamDevice,
+              );
+              if (!hasSelectedStreamDevice) {
+                setSelectedStreamDevice(firstPreviewDevice.id);
+              }
+            }
+          }
           addLog("Đã kết nối tất cả thiết bị khả dụng");
         },
         {
