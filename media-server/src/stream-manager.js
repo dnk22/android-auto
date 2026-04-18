@@ -20,6 +20,15 @@ export class StreamManager {
     return this.sessions.get(key);
   }
 
+  getLatestFrame(serial) {
+    const session = this.sessions.get(this.sessionKey(serial));
+    if (!session) {
+      return null;
+    }
+
+    return session.getLatestFrame();
+  }
+
   async broadcastControl(payload) {
     const targets = [];
     for (const session of this.sessions.values()) {

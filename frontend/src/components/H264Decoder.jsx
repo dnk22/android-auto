@@ -4,60 +4,23 @@ import { createStreamSocket } from "../services/mediaStream.js";
 import { useStore } from "../store/useStore.js";
 
 const FALLBACK_CODEC = "avc1.42E01E";
+const RECONNECT_DELAY_MS = 1_000;
+const TIMESTAMP_STEP = 1;
 
-function normalizeCodec(codec) {
-  const value = String(codec || "").trim().toLowerCase();
-  if (!value) {
-    return FALLBACK_CODEC;
-  }
-  if (value === "png") {
-    return "png";
-  }
-  if (value === "h264" || value === "avc") {
-    return FALLBACK_CODEC;
-  }
-  return String(codec);
-}
-
-function bytesFromBase64(base64) {
-  if (!base64) {
-    return undefined;
-  }
-  const binary = window.atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return bytes;
-}
-
-function isAnnexBKeyFrame(packet) {
-  if (!(packet instanceof Uint8Array) || packet.length < 5) {
-    return false;
+function parsePrefixedFrame(payload) {
+  if (!(payload instanceof Uint8Array) || payload.length < 2) {
+    return null;
   }
 
-  for (let index = 0; index <= packet.length - 5; index += 1) {
-    const startCode =
-      packet[index] === 0 &&
-      packet[index + 1] === 0 &&
-      (packet[index + 2] === 1 || (packet[index + 2] === 0 && packet[index + 3] === 1));
-
-    if (!startCode) {
-      continue;
-    }
-
-    const nalHeaderIndex = packet[index + 2] === 1 ? index + 3 : index + 4;
-    if (nalHeaderIndex >= packet.length) {
-      continue;
-    }
-
-    const nalType = packet[nalHeaderIndex] & 0x1f;
-    if (nalType === 5 || nalType === 7 || nalType === 8) {
-      return true;
-    }
+  const flag = payload[0];
+  if (flag !== 0 && flag !== 1) {
+    return null;
   }
 
-  return false;
+  return {
+    isKeyFrame: flag === 1,
+    data: payload.slice(1),
+  };
 }
 
 export default function H264Decoder({
@@ -74,8 +37,7 @@ export default function H264Decoder({
   const canvasRef = useRef(null);
   const decoderRef = useRef(null);
   const timestampRef = useRef(0);
-  const frameFormatRef = useRef("h264");
-  const frameTokenRef = useRef(0);
+  const reconnectTimerRef = useRef(null);
   const hasReceivedKeyFrameRef = useRef(false);
   const onSocketReadyRef = useRef(onSocketReady);
   const onFrameStateChangeRef = useRef(onFrameStateChange);
@@ -122,6 +84,13 @@ export default function H264Decoder({
     let decoder;
     hasReceivedKeyFrameRef.current = false;
 
+    const clearReconnectTimer = () => {
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
+
     const destroyDecoder = () => {
       if (decoder) {
         try {
@@ -132,6 +101,12 @@ export default function H264Decoder({
       }
       decoder = null;
       decoderRef.current = null;
+    };
+
+    const resetDecoderState = () => {
+      destroyDecoder();
+      hasReceivedKeyFrameRef.current = false;
+      timestampRef.current = 0;
     };
 
     const drawFallback = (label) => {
@@ -154,89 +129,7 @@ export default function H264Decoder({
       context.fillText(label, 16, 28);
     };
 
-    const drawBitmap = (bitmap) => {
-      const canvas = canvasRef.current;
-      if (!canvas) {
-        bitmap.close?.();
-        return;
-      }
-
-      const context = canvas.getContext("2d");
-      if (!context) {
-        bitmap.close?.();
-        return;
-      }
-
-      const width = bitmap.width || canvas.width || canvas.clientWidth || 320;
-      const height = bitmap.height || canvas.height || canvas.clientHeight || 180;
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
-      }
-
-      context.drawImage(bitmap, 0, 0, width, height);
-      bitmap.close?.();
-      onFrameStateChangeRef.current?.("rendering");
-    };
-
-    const renderPngFrame = async (binaryPayload) => {
-      const token = frameTokenRef.current + 1;
-      frameTokenRef.current = token;
-
-      try {
-        const blob = new Blob([binaryPayload], { type: "image/png" });
-        if (window.createImageBitmap) {
-          const bitmap = await createImageBitmap(blob);
-          if (cancelled || token !== frameTokenRef.current) {
-            bitmap.close?.();
-            return;
-          }
-          drawBitmap(bitmap);
-          return;
-        }
-
-        const url = URL.createObjectURL(blob);
-        const image = new Image();
-        image.onload = () => {
-          if (cancelled || token !== frameTokenRef.current) {
-            URL.revokeObjectURL(url);
-            return;
-          }
-
-          const canvas = canvasRef.current;
-          if (!canvas) {
-            URL.revokeObjectURL(url);
-            return;
-          }
-
-          const context = canvas.getContext("2d");
-          if (!context) {
-            URL.revokeObjectURL(url);
-            return;
-          }
-
-          if (canvas.width !== image.width || canvas.height !== image.height) {
-            canvas.width = image.width;
-            canvas.height = image.height;
-          }
-
-          context.drawImage(image, 0, 0, canvas.width, canvas.height);
-          URL.revokeObjectURL(url);
-          onFrameStateChangeRef.current?.("rendering");
-        };
-        image.onerror = () => {
-          URL.revokeObjectURL(url);
-          drawFallback("PNG frame decode failed");
-          setConnectionState("error");
-        };
-        image.src = url;
-      } catch (error) {
-        console.error(error);
-          onFrameStateChangeRef.current?.("error");
-      }
-    };
-
-    const createDecoder = (config) => {
+    const createDecoder = (codec) => {
       if (!window.VideoDecoder) {
         drawFallback("VideoDecoder is not available in this browser");
         return null;
@@ -269,17 +162,38 @@ export default function H264Decoder({
         },
         error: (error) => {
           console.error(error);
+          resetDecoderState();
           onFrameStateChangeRef.current?.("error");
           setConnectionState("error");
           drawFallback("Decoder error");
         },
       });
 
-      instance.configure(config);
+      instance.configure({
+        codec,
+        avc: { format: "annexb" },
+        optimizeForLatency: true,
+        hardwareAcceleration: "prefer-hardware",
+      });
       return instance;
     };
 
-    socket = createStreamSocket(serial, {
+    const scheduleReconnect = () => {
+      if (cancelled || reconnectTimerRef.current) {
+        return;
+      }
+
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null;
+        if (!cancelled) {
+          connect();
+        }
+      }, RECONNECT_DELAY_MS);
+    };
+
+    const connect = () => {
+      clearReconnectTimer();
+      socket = createStreamSocket(serial, {
       onOpen: () => {
         if (cancelled) {
           return;
@@ -305,7 +219,8 @@ export default function H264Decoder({
           streamKey,
         });
         clearStreamState(streamKey);
-        destroyDecoder();
+        resetDecoderState();
+        scheduleReconnect();
       },
       onError: () => {
         if (cancelled) {
@@ -319,6 +234,7 @@ export default function H264Decoder({
           streamKey,
         });
         onFrameStateChangeRef.current?.("error");
+        scheduleReconnect();
       },
       onMessage: (event) => {
         if (cancelled) {
@@ -329,23 +245,10 @@ export default function H264Decoder({
           try {
             const message = JSON.parse(event.data);
             if (message.type === "config") {
-              const resolvedCodec = normalizeCodec(message.codec);
-              frameFormatRef.current = String(resolvedCodec).toLowerCase();
-              const description = bytesFromBase64(message.description);
-              const config = {
-                codec: resolvedCodec,
-              };
-              if (description) {
-                config.description = description;
-              }
-              destroyDecoder();
-              if (frameFormatRef.current === "png") {
-                drawFallback("Screen capture active");
-                decoderRef.current = null;
-              } else {
-                decoder = createDecoder(config);
-                decoderRef.current = decoder;
-              }
+              const codec = String(message.codec || FALLBACK_CODEC);
+              resetDecoderState();
+              decoder = createDecoder(codec);
+              decoderRef.current = decoder;
               onFrameStateChangeRef.current?.("connected");
             }
           } catch (error) {
@@ -359,23 +262,12 @@ export default function H264Decoder({
           return;
         }
 
-        if (frameFormatRef.current === "png") {
-          void renderPngFrame(payload);
+        const prefixed = parsePrefixedFrame(payload);
+        if (!prefixed) {
           return;
         }
 
-        const isLegacyPrefixedFrame =
-          payload.length > 5 &&
-          (payload[0] === 0 || payload[0] === 1) &&
-          payload[1] === 0 &&
-          payload[2] === 0 &&
-          payload[3] === 0 &&
-          payload[4] === 1;
-
-        const data = isLegacyPrefixedFrame ? payload.slice(1) : payload;
-        const isKeyFrame = isLegacyPrefixedFrame
-          ? payload[0] === 1
-          : isAnnexBKeyFrame(data);
+        const { data, isKeyFrame } = prefixed;
 
         if (isKeyFrame) {
           hasReceivedKeyFrameRef.current = true;
@@ -389,6 +281,13 @@ export default function H264Decoder({
           return;
         }
 
+        if (decoder.state === "closed") {
+          decoder = null;
+          decoderRef.current = null;
+          hasReceivedKeyFrameRef.current = false;
+          return;
+        }
+
         try {
           decoder.decode(
             new EncodedVideoChunk({
@@ -397,19 +296,23 @@ export default function H264Decoder({
               data,
             })
           );
-          timestampRef.current += 33_333;
+          timestampRef.current += TIMESTAMP_STEP;
         } catch (error) {
           console.error(error);
+          resetDecoderState();
           onFrameStateChangeRef.current?.("error");
         }
       },
     });
+    };
+
+    connect();
 
     return () => {
       cancelled = true;
+      clearReconnectTimer();
       onFrameStateChangeRef.current?.("idle");
-      destroyDecoder();
-      frameFormatRef.current = "h264";
+      resetDecoderState();
       if (socket && socket.readyState === WebSocket.OPEN) {
         socket.close();
       }

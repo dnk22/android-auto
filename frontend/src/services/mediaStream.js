@@ -10,7 +10,7 @@ const STREAM_HTTP_URL_RAW =
 const STREAM_HTTP_URL = STREAM_HTTP_URL_RAW.replace(/\/+$/, "");
 
 export function buildStreamUrl(serial) {
-  return `${STREAM_WS_URL}/stream/main/${encodeURIComponent(serial)}`;
+  return `${STREAM_WS_URL}/stream/${encodeURIComponent(serial)}`;
 }
 
 export function buildThumbUrl(serial) {

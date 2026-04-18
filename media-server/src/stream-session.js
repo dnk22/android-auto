@@ -20,8 +20,8 @@ export class StreamSession {
     this.bridgeConfig = null;
     this.deviceSize = { width: 0, height: 0 };
     this.cleanupTimer = null;
-    this.headerFrames = [];
     this.lastKeyFrame = null;
+    this.latestFrame = null;
     this.isStopping = false;
   }
 
@@ -31,12 +31,6 @@ export class StreamSession {
 
     if (this.bridgeConfig) {
       this.sendConfigToClient(websocket, this.bridgeConfig);
-    }
-
-    for (const frame of this.headerFrames) {
-      if (websocket.readyState === WebSocket.OPEN) {
-        websocket.send(frame);
-      }
     }
 
     if (this.lastKeyFrame && websocket.readyState === WebSocket.OPEN) {
@@ -91,8 +85,8 @@ export class StreamSession {
       }
     });
 
-    this.bridge.on("frame", (frameBuffer, isKeyFrame) => {
-      this.forwardFrame(frameBuffer, isKeyFrame);
+    this.bridge.on("frame", (frameBuffer, frameMeta) => {
+      this.forwardFrame(frameBuffer, frameMeta);
     });
 
     this.bridge.on("log", (payload) => {
@@ -141,8 +135,8 @@ export class StreamSession {
 
     this.bridge = null;
     this.bridgeStarted = false;
-    this.headerFrames = [];
     this.lastKeyFrame = null;
+    this.latestFrame = null;
 
     for (const client of this.clients) {
       safeCall(() => client.close());
@@ -169,14 +163,23 @@ export class StreamSession {
     }
   }
 
-  forwardFrame(frameBuffer, isKeyFrame) {
-    const payload = Buffer.isBuffer(frameBuffer)
+  forwardFrame(frameBuffer, frameMeta = {}) {
+    const rawPayload = Buffer.isBuffer(frameBuffer)
       ? frameBuffer
       : Buffer.from(frameBuffer instanceof Uint8Array ? frameBuffer : frameBuffer?.data || []);
 
+    if (!rawPayload.length) {
+      return;
+    }
+
+    const isKeyFrame = Boolean(frameMeta?.isKeyFrame);
+
+    const payload = Buffer.concat([Buffer.from([isKeyFrame ? 1 : 0]), rawPayload]);
+
+    this.latestFrame = payload;
+
     if (isKeyFrame) {
       this.lastKeyFrame = payload;
-      this.headerFrames = [payload].slice(-2);
     }
 
     for (const client of this.clients) {
@@ -184,6 +187,13 @@ export class StreamSession {
         client.send(payload);
       }
     }
+  }
+
+  getLatestFrame() {
+    if (!this.latestFrame) {
+      return null;
+    }
+    return Buffer.from(this.latestFrame);
   }
 
   async handleMessage(payload) {

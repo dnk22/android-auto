@@ -37,7 +37,15 @@ export async function createAdbContext(serial) {
   };
 }
 
-export async function captureThumbFrame(serial) {
+export async function captureThumbFrame(serial, options = {}) {
+  if (options.preferredFrame?.length) {
+    try {
+      return await compressThumbImageToWebp(Buffer.from(options.preferredFrame));
+    } catch (error) {
+      // Ignore decode/compression errors and fallback to adb screencap.
+    }
+  }
+
   const adbContext = await createAdbContext(serial);
 
   try {

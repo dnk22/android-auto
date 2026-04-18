@@ -7,11 +7,16 @@ import { StreamManager } from "./stream-manager.js";
 import { captureThumbFrame } from "./yume-adb.js";
 
 function resolveMainStreamRequest(url) {
-  if (url.pathname.startsWith("/stream/main/")) {
-    return decodeURIComponent(url.pathname.replace("/stream/main/", ""));
+  if (url.pathname.startsWith("/stream/thumb/")) {
+    return null;
   }
 
-  return null;
+  const parts = url.pathname.split("/").filter(Boolean);
+  if (parts.length !== 2 || parts[0] !== "stream") {
+    return null;
+  }
+
+  return decodeURIComponent(parts[1] || "");
 }
 
 export function startMediaServer(port = MEDIA_SERVER_PORT) {
@@ -35,7 +40,10 @@ export function startMediaServer(port = MEDIA_SERVER_PORT) {
       }
 
       try {
-        const frame = await captureThumbFrame(serial);
+        const preferredFrame = manager.getLatestFrame(serial);
+        const frame = await captureThumbFrame(serial, {
+          preferredFrame,
+        });
         response.writeHead(200, {
           "Content-Type": "image/webp",
           "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
