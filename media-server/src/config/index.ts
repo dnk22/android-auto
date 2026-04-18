@@ -1,6 +1,7 @@
 export interface AppConfig {
   port: number;
   host: string;
+  corsOrigins: string[];
   idleTimeoutMs: number;
   thumbnailIntervalMs: number;
   logLevel: "debug" | "info" | "warn" | "error";
@@ -25,9 +26,16 @@ const toLogLevel = (
   return "info";
 };
 
+const toOrigins = (value: string | undefined): string[] => {
+  const raw = value ?? "*";
+  const parts = raw.split(",").map((item) => item.trim()).filter((item) => item.length > 0);
+  return parts.length > 0 ? parts : ["*"];
+};
+
 export const config: AppConfig = {
   port: toNumber(process.env.MEDIA_PORT, 9100),
   host: process.env.MEDIA_HOST ?? "0.0.0.0",
+  corsOrigins: toOrigins(process.env.MEDIA_CORS_ORIGINS),
   idleTimeoutMs: toNumber(process.env.MEDIA_IDLE_TIMEOUT_MS, 30_000),
   thumbnailIntervalMs: toNumber(process.env.MEDIA_THUMBNAIL_INTERVAL_MS, 5_000),
   logLevel: toLogLevel(process.env.MEDIA_LOG_LEVEL),

@@ -5,6 +5,7 @@ from pathlib import Path
 from types import ModuleType
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import load_settings
 from app.core.state import AppContainer
@@ -32,6 +33,7 @@ def _build_container() -> AppContainer:
     settings = load_settings()
     logger = JsonLogger()
     ws_manager = WSManager()
+    logger.set_sink(ws_manager.broadcast_log)
     media_client = MediaClient(settings)
     media_scheduler = MediaScheduler(settings.media_nodes)
     controller = DeviceController(logger)
@@ -80,6 +82,16 @@ def _include_routers(app: FastAPI, container: AppContainer) -> None:
 
 container = _build_container()
 app = FastAPI(title="Phone Farm Orchestrator")
+
+allow_all = "*" in container.settings.cors_origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if allow_all else container.settings.cors_origins,
+    allow_credentials=not allow_all,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 _include_routers(app, container)
 
 
@@ -98,8 +110,7 @@ async def logs_ws(websocket: WebSocket) -> None:
     await container.ws_manager.connect_logs(websocket)
     try:
         while True:
-            message = await websocket.receive_text()
-            await container.ws_manager.broadcast_log(message)
+            await websocket.receive()
     except WebSocketDisconnect:
         await container.ws_manager.disconnect_logs(websocket)
 

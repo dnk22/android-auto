@@ -1,13 +1,43 @@
 from __future__ import annotations
 
+import asyncio
 import sys
+from collections.abc import Awaitable, Callable
 
 from app.models.common import LogLevel, LogRecord, LogType
 
 
+LogSink = Callable[[str], Awaitable[None]]
+
+
+def _drain_task(task: asyncio.Task[None]) -> None:
+    try:
+        _ = task.exception()
+    except asyncio.CancelledError:
+        return
+
+
 class JsonLogger:
+    def __init__(self) -> None:
+        self._sink: LogSink | None = None
+
+    def set_sink(self, sink: LogSink) -> None:
+        self._sink = sink
+
     def _emit(self, record: LogRecord) -> None:
-        sys.stdout.write(record.model_dump_json() + "\n")
+        line = record.model_dump_json()
+        sys.stdout.write(line + "\n")
+
+        if self._sink is None:
+            return
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+
+        task = loop.create_task(self._sink(line))
+        task.add_done_callback(_drain_task)
 
     def info(
         self,
