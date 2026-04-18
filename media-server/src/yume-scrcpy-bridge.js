@@ -4,10 +4,10 @@ import { ScreenCaptureBridge } from "./screen-capture-bridge.js";
 import { createAdbContext } from "./yume-adb.js";
 
 export class YumeScrcpyBridge extends EventEmitter {
-  constructor(serial, profile) {
+  constructor(serial, streamProfile) {
     super();
     this.serial = serial;
-    this.profile = profile;
+    this.streamProfile = streamProfile;
     this.adbContext = null;
     this.frameSource = null;
     this.deviceSize = { width: 1080, height: 1920 };
@@ -29,7 +29,7 @@ export class YumeScrcpyBridge extends EventEmitter {
       message: "scrcpy client runtime is not exposed in installed package; using ADB-backed frame fallback",
     });
 
-    this.frameSource = new ScreenCaptureBridge(this.serial, this.profile, this.deviceSize);
+    this.frameSource = new ScreenCaptureBridge(this.serial, this.streamProfile, this.deviceSize);
 
     this.frameSource.on("config", (config) => {
       this.deviceSize = {

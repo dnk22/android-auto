@@ -9,22 +9,20 @@ const STREAM_HTTP_URL_RAW =
 
 const STREAM_HTTP_URL = STREAM_HTTP_URL_RAW.replace(/\/+$/, "");
 
-export function buildStreamUrl(serial, type) {
-  const params = new URLSearchParams({ profile: type, type });
-  const streamPath = type === "main" ? "stream/main" : "stream";
-  return `${STREAM_WS_URL}/${streamPath}/${encodeURIComponent(serial)}?${params.toString()}`;
+export function buildStreamUrl(serial) {
+  return `${STREAM_WS_URL}/stream/main/${encodeURIComponent(serial)}`;
 }
 
 export function buildThumbUrl(serial) {
   return `${STREAM_HTTP_URL}/stream/thumb/${encodeURIComponent(serial)}`;
 }
 
-export function createStreamSocket(serial, type, handlers = {}) {
+export function createStreamSocket(serial, handlers = {}) {
   if (!serial) {
     throw new Error("serial is required");
   }
 
-  const socket = new WebSocket(buildStreamUrl(serial, type));
+  const socket = new WebSocket(buildStreamUrl(serial));
   socket.binaryType = "arraybuffer";
 
   socket.onopen = () => handlers.onOpen?.(socket);

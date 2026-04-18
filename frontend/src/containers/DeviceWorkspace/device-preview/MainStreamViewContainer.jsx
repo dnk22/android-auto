@@ -67,7 +67,6 @@ export default function MainStreamViewContainer() {
             {activeStreamDevice ? (
               <H264Decoder
                 serial={activeStreamDevice}
-                type="main"
                 interactive
                 className="h-full w-full"
                 onSocketReady={onSocketReady}

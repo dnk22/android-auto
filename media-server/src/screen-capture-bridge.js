@@ -7,15 +7,15 @@ import { DEFAULT_CODEC } from "./config.js";
 const execFileAsync = promisify(execFile);
 
 export class ScreenCaptureBridge extends EventEmitter {
-  constructor(serial, profile, deviceSize) {
+  constructor(serial, streamProfile, deviceSize) {
     super();
     this.serial = serial;
-    this.profile = profile;
+    this.streamProfile = streamProfile;
     this.deviceSize = deviceSize;
     this.running = false;
     this.timer = null;
     this.firstFrameSent = false;
-    this.intervalMs = profile?.fps ? Math.max(100, Math.round(1000 / profile.fps)) : 250;
+    this.intervalMs = streamProfile?.fps ? Math.max(100, Math.round(1000 / streamProfile.fps)) : 250;
   }
 
   async start() {

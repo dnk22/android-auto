@@ -10,17 +10,15 @@ const KEY_CODE_BY_ACTION = {
 };
 
 export class StreamSession {
-  constructor(serial, type, profile, manager) {
+  constructor(serial, streamProfile, manager) {
     this.serial = serial;
-    this.type = type;
-    this.profile = profile;
+    this.streamProfile = streamProfile;
     this.manager = manager;
     this.clients = new Set();
     this.bridge = null;
     this.bridgeStarted = false;
     this.bridgeConfig = null;
     this.deviceSize = { width: 0, height: 0 };
-    this.lastFrameAt = 0;
     this.cleanupTimer = null;
     this.headerFrames = [];
     this.lastKeyFrame = null;
@@ -75,7 +73,7 @@ export class StreamSession {
     }
 
     this.bridgeStarted = true;
-    const bridge = new YumeScrcpyBridge(this.serial, this.profile);
+    const bridge = new YumeScrcpyBridge(this.serial, this.streamProfile);
     await this.attachBridge(bridge);
   }
 
@@ -109,7 +107,6 @@ export class StreamSession {
         type: "stream_closed",
         data: {
           serial: this.serial,
-          type: this.type,
         },
       });
       this.stop().catch(() => {});
@@ -120,7 +117,6 @@ export class StreamSession {
         type: "stream_error",
         data: {
           serial: this.serial,
-          type: this.type,
           message: error?.message || String(error),
         },
       });
@@ -174,13 +170,6 @@ export class StreamSession {
   }
 
   forwardFrame(frameBuffer, isKeyFrame) {
-    const now = Date.now();
-    const minInterval = this.type === "thumb" ? 100 : 0;
-    if (this.type === "thumb" && now - this.lastFrameAt < minInterval) {
-      return;
-    }
-
-    this.lastFrameAt = now;
     const payload = Buffer.isBuffer(frameBuffer)
       ? frameBuffer
       : Buffer.from(frameBuffer instanceof Uint8Array ? frameBuffer : frameBuffer?.data || []);

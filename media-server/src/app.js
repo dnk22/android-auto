@@ -1,39 +1,14 @@
 import { WebSocketServer } from "ws";
 
-import { MEDIA_SERVER_PORT, PROFILE_ALIASES } from "./config.js";
+import { MEDIA_SERVER_PORT } from "./config.js";
 import { createHealthServer } from "./http-server.js";
 import { LogRelay } from "./log-relay.js";
 import { StreamManager } from "./stream-manager.js";
 import { captureThumbFrame } from "./yume-adb.js";
 
-function resolveProfile(url) {
-  const requested =
-    String(url.searchParams.get("profile") || url.searchParams.get("type") || "main").toLowerCase();
-  return PROFILE_ALIASES[requested] || "main";
-}
-
 function resolveMainStreamRequest(url) {
   if (url.pathname.startsWith("/stream/main/")) {
-    return {
-      serial: decodeURIComponent(url.pathname.replace("/stream/main/", "")),
-      type: "main",
-    };
-  }
-
-  if (url.pathname.startsWith("/stream/thumb/")) {
-    return null;
-  }
-
-  if (url.pathname.startsWith("/stream/")) {
-    const legacyType = resolveProfile(url);
-    if (legacyType === "thumb") {
-      return null;
-    }
-
-    return {
-      serial: decodeURIComponent(url.pathname.replace("/stream/", "")),
-      type: "main",
-    };
+    return decodeURIComponent(url.pathname.replace("/stream/main/", ""));
   }
 
   return null;
@@ -96,9 +71,9 @@ export function startMediaServer(port = MEDIA_SERVER_PORT) {
         return;
       }
 
-      const { serial, type } = streamRequest;
-      logRelay.log(`Stream request: serial=${serial} profile=${type}`);
-      const session = await manager.getSession(serial, type);
+      const serial = streamRequest;
+      logRelay.log(`Stream request: serial=${serial}`);
+      const session = await manager.getSession(serial);
 
       wss.handleUpgrade(request, socket, head, (websocket) => {
         wss.emit("connection", websocket, request, session);

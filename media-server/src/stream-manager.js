@@ -1,4 +1,4 @@
-import { STREAM_PROFILES } from "./config.js";
+import { MAIN_STREAM_PROFILE } from "./config.js";
 import { StreamSession } from "./stream-session.js";
 
 export class StreamManager {
@@ -7,37 +7,22 @@ export class StreamManager {
     this.logRelay = logRelay;
   }
 
-  sessionKey(serial, type) {
-    return `${serial}:${type}`;
+  sessionKey(serial) {
+    return serial;
   }
 
-  async getSession(serial, type) {
-    const key = this.sessionKey(serial, type);
+  async getSession(serial) {
+    const key = this.sessionKey(serial);
     if (!this.sessions.has(key)) {
-      this.sessions.set(key, new StreamSession(serial, type, STREAM_PROFILES[type], this, this.logRelay));
+      this.sessions.set(key, new StreamSession(serial, MAIN_STREAM_PROFILE, this, this.logRelay));
     }
 
     return this.sessions.get(key);
   }
 
   async broadcastControl(payload) {
-    const sessionBySerial = new Map();
-
-    for (const session of this.sessions.values()) {
-      const current = sessionBySerial.get(session.serial);
-      if (!current) {
-        sessionBySerial.set(session.serial, session);
-        continue;
-      }
-
-      // Prefer main stream session for controls, fallback to any available session.
-      if (current.type !== "main" && session.type === "main") {
-        sessionBySerial.set(session.serial, session);
-      }
-    }
-
     const targets = [];
-    for (const session of sessionBySerial.values()) {
+    for (const session of this.sessions.values()) {
       targets.push(
         session.handleControl({
           ...payload,

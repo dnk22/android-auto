@@ -8,22 +8,8 @@ export const THUMB_COMPRESS_WIDTH = Number(process.env.THUMB_COMPRESS_WIDTH || 2
 export const THUMB_COMPRESS_WEBP_QUALITY = Number(process.env.THUMB_COMPRESS_WEBP_QUALITY || 40);
 export const THUMB_COMPRESS_WEBP_EFFORT = Number(process.env.THUMB_COMPRESS_WEBP_EFFORT || 6);
 
-export const STREAM_PROFILES = {
-  thumb: {
-    bitrate: 200_000,
-    fps: 5,
-    scale: 0.2,
-  },
-  main: {
-    bitrate: 2_000_000,
-    fps: 60,
-    scale: 1,
-  },
-};
-
-export const PROFILE_ALIASES = {
-  thumb: "thumb",
-  thumbnail: "thumb",
-  main: "main",
-  detail: "main",
+export const MAIN_STREAM_PROFILE = {
+  bitrate: 2_000_000,
+  fps: 60,
+  scale: 1,
 };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { createStreamSocket } from "../services/mediaStream.js";
 import { useStore } from "../store/useStore.js";
@@ -62,7 +62,6 @@ function isAnnexBKeyFrame(packet) {
 
 export default function H264Decoder({
   serial,
-  type = "main",
   interactive = false,
   onSocketReady,
   className = "",
@@ -84,8 +83,7 @@ export default function H264Decoder({
   const onPointerMoveRef = useRef(onPointerMove);
   const onPointerUpRef = useRef(onPointerUp);
   const onPointerLeaveRef = useRef(onPointerLeave);
-  const streamKind = useMemo(() => type, [type]);
-  const streamKey = `${serial}:${streamKind}`;
+  const streamKey = `${serial}:main`;
   const [connectionState, setConnectionState] = useState("idle");
   const setStreamState = useStore((state) => state.setStreamState);
   const clearStreamState = useStore((state) => state.clearStreamState);
@@ -281,14 +279,14 @@ export default function H264Decoder({
       return instance;
     };
 
-    socket = createStreamSocket(serial, streamKind, {
+    socket = createStreamSocket(serial, {
       onOpen: () => {
         if (cancelled) {
           return;
         }
         setConnectionState("connected");
         setStreamState(streamKey, {
-          type: streamKind,
+          type: "main",
           status: "connected",
           serial,
           streamKey,
@@ -301,7 +299,7 @@ export default function H264Decoder({
         }
         setConnectionState("closed");
         setStreamState(streamKey, {
-          type: streamKind,
+          type: "main",
           status: "disconnected",
           serial,
           streamKey,
@@ -315,7 +313,7 @@ export default function H264Decoder({
         }
         setConnectionState("error");
         setStreamState(streamKey, {
-          type: streamKind,
+          type: "main",
           status: "error",
           serial,
           streamKey,
@@ -416,11 +414,11 @@ export default function H264Decoder({
         socket.close();
       }
     };
-  }, [clearStreamState, serial, setStreamState, streamKind]);
+  }, [clearStreamState, serial, setStreamState, streamKey]);
 
   useEffect(() => {
-    drawPlaceholder(canvasRef.current, serial, streamKind, connectionState);
-  }, [serial, streamKind, connectionState]);
+    drawPlaceholder(canvasRef.current, serial, connectionState);
+  }, [serial, connectionState]);
 
   return (
     <div className={`flex h-full w-full items-center justify-center overflow-hidden ${className}`}>
@@ -428,7 +426,7 @@ export default function H264Decoder({
         ref={canvasRef}
         className="block max-h-full max-w-full rounded-2xl"
         data-serial={serial}
-        data-stream-type={streamKind}
+        data-stream-type="main"
         data-interactive={interactive ? "true" : "false"}
         onPointerDown={interactive ? (event) => onPointerDownRef.current?.(event) : undefined}
         onPointerMove={interactive ? (event) => onPointerMoveRef.current?.(event) : undefined}
@@ -439,7 +437,7 @@ export default function H264Decoder({
   );
 }
 
-function drawPlaceholder(canvas, serial, type, state) {
+function drawPlaceholder(canvas, serial, state) {
   if (!canvas) {
     return;
   }
@@ -457,7 +455,7 @@ function drawPlaceholder(canvas, serial, type, state) {
   context.strokeRect(0, 0, width, height);
   context.fillStyle = "#e2e8f0";
   context.font = "13px sans-serif";
-  context.fillText(serial ? `${serial} (${type})` : "No device selected", 16, 28);
+  context.fillText(serial ? `${serial} (main)` : "No device selected", 16, 28);
   context.fillStyle = "#94a3b8";
   context.fillText(`State: ${state}`, 16, 52);
 }
