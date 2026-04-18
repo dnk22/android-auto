@@ -15,6 +15,8 @@ def build_router(device_manager, media_client):
             state = await device_manager.ensure_stream(device_id)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
 
         if not state.media_node_id:
             raise HTTPException(status_code=500, detail="No media node assigned")

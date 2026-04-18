@@ -4,6 +4,8 @@ import asyncio
 import contextlib
 from typing import Optional
 
+import httpx
+
 from app.core.events import DeviceUpdateEvent
 from app.core.locks import DeviceLocks
 from app.models.common import LogType
@@ -162,14 +164,40 @@ class DeviceManager:
 
             if device.stream == StreamStatus.RUNNING:
                 if self.is_stream_stale(device_id):
-                    await self._media_client.restart_stream(device_id, device.media_node_id)
-                    device.last_frame_at = now_ts()
-                    self._logger.warning(
-                        device_id=device_id,
-                        type=LogType.STREAM,
-                        event="restart_stream",
-                        message="Stream stale, restarted",
-                    )
+                    try:
+                        await self._media_client.restart_stream(device_id, device.media_node_id)
+                        device.last_frame_at = now_ts()
+                        self._logger.warning(
+                            device_id=device_id,
+                            type=LogType.STREAM,
+                            event="restart_stream",
+                            message="Stream stale, restarted",
+                        )
+                    except httpx.TimeoutException as exc:
+                        self._logger.warning(
+                            device_id=device_id,
+                            type=LogType.STREAM,
+                            event="restart_stream_timeout",
+                            message="Media restart timed out, checking stream status",
+                            meta={"error": str(exc), "node": device.media_node_id},
+                        )
+
+                        try:
+                            status = await self._media_client.stream_status(device_id, device.media_node_id)
+                            if status.status == StreamStatus.RUNNING:
+                                device.last_frame_at = now_ts()
+                                await self._push_update(device)
+                                return device
+                        except Exception as status_error:
+                            self._logger.error(
+                                device_id=device_id,
+                                type=LogType.STREAM,
+                                event="stream_status_after_timeout_failed",
+                                message="Failed to verify stream state after timeout",
+                                meta={"error": str(status_error), "node": device.media_node_id},
+                            )
+
+                        raise RuntimeError("Media server restart timed out") from exc
                 else:
                     status = await self._media_client.stream_status(device_id, device.media_node_id)
                     if status.lastFrameAt:

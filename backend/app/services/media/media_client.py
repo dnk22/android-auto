@@ -39,6 +39,10 @@ class MediaClient:
     def stream_ws_url(self, device_id: str, node: str) -> str:
         if self._settings.media_ws_base:
             base = self._settings.media_ws_base.rstrip("/")
+
+            if base.startswith("/"):
+                return f"{base}/stream/{device_id}"
+
             return f"{base}/stream/{device_id}"
         ws_base = node.replace("http://", "ws://").replace("https://", "wss://")
         return f"{ws_base.rstrip('/')}/stream/{device_id}"

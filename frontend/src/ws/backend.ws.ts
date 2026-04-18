@@ -18,7 +18,6 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 export function createBackendDeviceSocket(handlers: Handlers): Controller {
   let socket: WebSocket | null = null;
   let active = true;
-  let reconnectAttempt = 0;
 
   const connect = () => {
     if (!active) {
@@ -27,7 +26,6 @@ export function createBackendDeviceSocket(handlers: Handlers): Controller {
 
     socket = new WebSocket(backendWsUrl);
     socket.onopen = () => {
-      reconnectAttempt = 0;
       log("info", { event: "backend_ws_open" });
     };
 
@@ -65,9 +63,7 @@ export function createBackendDeviceSocket(handlers: Handlers): Controller {
       if (!active) {
         return;
       }
-      reconnectAttempt += 1;
-      const delay = Math.min(1000 * reconnectAttempt, 5000);
-      setTimeout(connect, delay);
+      log("warn", { event: "backend_ws_closed" });
     };
   };
 

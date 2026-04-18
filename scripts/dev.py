@@ -56,19 +56,20 @@ def main() -> None:
         media_cmd = [media_runner, "run", "dev"]
 
     backend_env = os.environ.copy()
-    backend_env.setdefault("BACKEND_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+    backend_env["BACKEND_CORS_ORIGINS"] = "*"
 
     frontend_env = os.environ.copy()
-    frontend_env.setdefault("VITE_BACKEND_URL", "/api")
-    frontend_env.setdefault("VITE_API_URL", "/api")
-    frontend_env.setdefault("VITE_WS_URL", "/ws/logs")
-    frontend_env.setdefault("VITE_DEVICE_WS_URL", "/ws/devices")
-    frontend_env.setdefault("VITE_STREAM_WS_URL", "/media")
-    frontend_env.setdefault("VITE_STREAM_HTTP_URL", "/media")
-    frontend_env.setdefault("VITE_MEDIA_HTTP_URL", "/media")
+    frontend_env["VITE_BACKEND_URL"] = "http://localhost:8000"
+    frontend_env["VITE_API_URL"] = "http://localhost:8000"
+    frontend_env["VITE_BACKEND_WS_URL"] = "ws://localhost:8000/ws/devices"
+    frontend_env["VITE_DEVICE_WS_URL"] = "ws://localhost:8000/ws/devices"
+    frontend_env["VITE_WS_URL"] = "ws://localhost:8000/ws/logs"
+    frontend_env["VITE_STREAM_WS_URL"] = "ws://localhost:9100"
+    frontend_env["VITE_STREAM_HTTP_URL"] = "http://localhost:9100"
+    frontend_env["VITE_MEDIA_HTTP_URL"] = "http://localhost:9100"
 
     media_env = os.environ.copy()
-    media_env.setdefault("MEDIA_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+    media_env["MEDIA_CORS_ORIGINS"] = "*"
 
     log_line("starting processes")
     log_line(f"backend  cwd={backend_dir} cmd={fmt_cmd(backend_cmd)}")

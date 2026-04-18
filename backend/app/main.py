@@ -83,10 +83,9 @@ def _include_routers(app: FastAPI, container: AppContainer) -> None:
 container = _build_container()
 app = FastAPI(title="Phone Farm Orchestrator")
 
-allow_all = "*" in container.settings.cors_origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if allow_all else container.settings.cors_origins,
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

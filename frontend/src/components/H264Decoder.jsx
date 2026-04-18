@@ -5,8 +5,6 @@ import { createStreamSocketFromUrl } from "../services/mediaStream.js";
 import { useStore } from "../store/useStore.js";
 
 const FALLBACK_CODEC = "avc1.42E01E";
-const RECONNECT_DELAY_MS = 1_000;
-const MAX_RECONNECT_ATTEMPTS = 3;
 const TIMESTAMP_STEP = 1;
 
 function parsePrefixedFrame(payload) {
@@ -39,7 +37,6 @@ export default function H264Decoder({
   const canvasRef = useRef(null);
   const decoderRef = useRef(null);
   const timestampRef = useRef(0);
-  const reconnectTimerRef = useRef(null);
   const hasReceivedKeyFrameRef = useRef(false);
   const onSocketReadyRef = useRef(onSocketReady);
   const onFrameStateChangeRef = useRef(onFrameStateChange);
@@ -84,15 +81,7 @@ export default function H264Decoder({
     let socket;
     let cancelled = false;
     let decoder;
-    let reconnectAttempts = 0;
     hasReceivedKeyFrameRef.current = false;
-
-    const clearReconnectTimer = () => {
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-    };
 
     const destroyDecoder = () => {
       if (decoder) {
@@ -186,7 +175,6 @@ export default function H264Decoder({
         return;
       }
 
-      clearReconnectTimer();
       setConnectionState("connecting");
 
       try {
@@ -200,7 +188,6 @@ export default function H264Decoder({
             if (cancelled) {
               return;
             }
-            reconnectAttempts = 0;
             setConnectionState("connected");
             setStreamState(streamKey, {
               type: "main",
@@ -223,7 +210,6 @@ export default function H264Decoder({
             });
             clearStreamState(streamKey);
             resetDecoderState();
-            scheduleReconnect();
           },
           onError: () => {
             if (cancelled) {
@@ -237,7 +223,6 @@ export default function H264Decoder({
               streamKey,
             });
             onFrameStateChangeRef.current?.("error");
-            scheduleReconnect();
           },
           onMessage: (event) => {
             if (cancelled) {
@@ -310,34 +295,14 @@ export default function H264Decoder({
       } catch (error) {
         if (!cancelled) {
           setConnectionState("error");
-          scheduleReconnect();
         }
       }
-    };
-
-    const scheduleReconnect = () => {
-      if (cancelled || reconnectTimerRef.current) {
-        return;
-      }
-
-      reconnectAttempts += 1;
-      const delay = reconnectAttempts <= MAX_RECONNECT_ATTEMPTS
-        ? RECONNECT_DELAY_MS
-        : RECONNECT_DELAY_MS * 2;
-
-      reconnectTimerRef.current = setTimeout(() => {
-        reconnectTimerRef.current = null;
-        if (!cancelled) {
-          connect();
-        }
-      }, delay);
     };
 
     void connect();
 
     return () => {
       cancelled = true;
-      clearReconnectTimer();
       onFrameStateChangeRef.current?.("idle");
       resetDecoderState();
       if (socket && socket.readyState <= WebSocket.OPEN) {

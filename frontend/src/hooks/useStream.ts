@@ -23,8 +23,6 @@ export function useStream(
 
   const socketRef = useRef<WebSocket | null>(null);
   const activeRef = useRef(true);
-  const retryRef = useRef(0);
-  const reconnectTimerRef = useRef<number | null>(null);
 
   const cleanupSocket = useCallback(() => {
     const socket = socketRef.current;
@@ -41,27 +39,17 @@ export function useStream(
     }
   }, []);
 
-  const clearReconnectTimer = useCallback(() => {
-    if (reconnectTimerRef.current !== null) {
-      window.clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = null;
-    }
-  }, []);
-
   const disconnect = useCallback(() => {
-    clearReconnectTimer();
-    retryRef.current = 0;
     setConnected(false);
     setLoading(false);
     cleanupSocket();
-  }, [cleanupSocket, clearReconnectTimer]);
+  }, [cleanupSocket]);
 
   const connect = useCallback(() => {
     if (!deviceId || !activeRef.current) {
       return;
     }
 
-    clearReconnectTimer();
     void (async () => {
       try {
         setLoading(true);
@@ -77,35 +65,16 @@ export function useStream(
           onOpen: () => {
             setLoading(false);
             setConnected(true);
-            retryRef.current = 0;
             handlers.onOpen?.(socket);
           },
           onClose: () => {
             setConnected(false);
             handlers.onClose?.();
-
-            if (!activeRef.current) {
-              return;
-            }
-
-            if (retryRef.current < 3) {
-              retryRef.current += 1;
-              const delay = 500 * retryRef.current;
-              reconnectTimerRef.current = window.setTimeout(() => {
-                reconnectTimerRef.current = null;
-                connect();
-              }, delay);
-              return;
-            }
-
-            retryRef.current = 0;
-            reconnectTimerRef.current = window.setTimeout(() => {
-              reconnectTimerRef.current = null;
-              connect();
-            }, 1200);
+            setLoading(false);
           },
           onError: () => {
             setConnected(false);
+            setLoading(false);
             handlers.onError?.();
           },
           onMessage: (event) => {
@@ -117,20 +86,9 @@ export function useStream(
       } catch {
         setConnected(false);
         setLoading(false);
-
-        if (!activeRef.current) {
-          return;
-        }
-
-        retryRef.current += 1;
-        const delay = Math.min(500 * retryRef.current, 2000);
-        reconnectTimerRef.current = window.setTimeout(() => {
-          reconnectTimerRef.current = null;
-          connect();
-        }, delay);
       }
     })();
-  }, [cleanupSocket, clearReconnectTimer, deviceId, handlers]);
+  }, [cleanupSocket, deviceId, handlers]);
 
   useEffect(() => {
     activeRef.current = true;

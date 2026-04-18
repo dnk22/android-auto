@@ -6,7 +6,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import { useDevices } from "./hooks/useDevices.ts";
 import { useStore } from "./store/useStore.js";
 
-const WS_URL = import.meta.env.VITE_WS_URL || "/ws/logs";
+const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws/logs";
 
 export default function App() {
   const addLog = useStore((state) => state.addLog);
@@ -20,7 +20,6 @@ export default function App() {
 
   useEffect(() => {
     let socket;
-    let isActive = true;
 
     const connect = () => {
       socket = new WebSocket(WS_URL);
@@ -34,17 +33,13 @@ export default function App() {
         socket.close();
       };
       socket.onclose = () => {
-        if (isActive) {
-          addLog("WebSocket disconnected, retrying...");
-          setTimeout(connect, 1000);
-        }
+        addLog("WebSocket disconnected");
       };
     };
 
     connect();
 
     return () => {
-      isActive = false;
       if (socket) {
         socket.close();
       }
