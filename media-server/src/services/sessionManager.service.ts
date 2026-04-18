@@ -5,7 +5,13 @@ import type { Session, SessionStatus } from "../types/session";
 import { AsyncLock } from "../utils/asyncLock";
 import { nowMs } from "../utils/time";
 import { log } from "../utils/logger";
-import { isKeyframe, wrapFrame } from "../utils/streamProtocol";
+import {
+  buildConfigMessage,
+  buildErrorMessage,
+  buildStateMessage,
+  isKeyframe,
+  wrapFrame,
+} from "../utils/streamProtocol";
 import { ScrcpyService } from "./scrcpy.service";
 
 const MAX_CLIENT_BUFFERED_BYTES = 1024 * 1024;
@@ -19,6 +25,26 @@ export class SessionManager {
 
   public constructor(scrcpyService: ScrcpyService) {
     this.scrcpyService = scrcpyService;
+  }
+
+  private createSessionId(deviceId: string): string {
+    return `${deviceId}-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+  }
+
+  private broadcastJson(session: Session, message: unknown): void {
+    const payload = JSON.stringify(message);
+    for (const client of session.clients) {
+      if (client.readyState === client.OPEN) {
+        client.send(payload);
+      }
+    }
+  }
+
+  private broadcastState(session: Session): void {
+    this.broadcastJson(
+      session,
+      buildStateMessage(session.sessionId, session.deviceId, session.status, nowMs()),
+    );
   }
 
   public listSessions(): Session[] {
@@ -37,8 +63,10 @@ export class SessionManager {
 
     const session: Session = {
       deviceId,
+      sessionId: this.createSessionId(deviceId),
       status: "STARTING",
       clients: new Set<WebSocket>(),
+      configuredClients: new WeakSet<WebSocket>(),
       idleTimer: null,
     };
 
@@ -68,6 +96,7 @@ export class SessionManager {
 
       const session = this.createSession(deviceId);
       session.status = "STARTING";
+      this.broadcastState(session);
 
       log({ level: "info", event: "start_stream", deviceId });
 
@@ -79,26 +108,50 @@ export class SessionManager {
             session.videoHeight = payload.height;
             if (payload.codecConfig && payload.codecConfig.length > 0) {
               session.codecConfig = payload.codecConfig;
+              const configMessage =
+                buildConfigMessage(
+                  session.sessionId,
+                  session.deviceId,
+                  session.videoWidth ?? payload.width,
+                  session.videoHeight ?? payload.height,
+                  session.codecConfig,
+                  session.videoCodec,
+                );
+
+              this.broadcastJson(session, configMessage);
+
+              for (const client of session.clients) {
+                session.configuredClients.add(client);
+              }
             }
           },
           onFrame: (frame, keyframeHint) => {
+            if (!session.codecConfig || session.codecConfig.length === 0) {
+              return;
+            }
+
             const keyframe = keyframeHint ?? isKeyframe(frame);
-            const payload = wrapFrame(frame, keyframe);
+            const frameTimestamp = nowMs();
+            const payload = wrapFrame(frame, keyframe, frameTimestamp);
 
             session.lastFrame = frame;
             if (keyframe) {
-              session.lastKeyframe = session.codecConfig
-                ? Buffer.concat([session.codecConfig, frame])
-                : frame;
+              session.lastKeyframe = frame;
+              session.lastKeyframeAt = frameTimestamp;
             }
-            session.lastFrameAt = nowMs();
+            session.lastFrameAt = frameTimestamp;
 
             if (session.status === "STARTING") {
               session.status = "RUNNING";
+              this.broadcastState(session);
             }
 
             for (const client of session.clients) {
               if (client.readyState === client.OPEN) {
+                if (!session.configuredClients.has(client)) {
+                  continue;
+                }
+
                 if (client.bufferedAmount > MAX_CLIENT_BUFFERED_BYTES) {
                   continue;
                 }
@@ -109,11 +162,23 @@ export class SessionManager {
           },
           onError: (error) => {
             session.status = "ERROR";
+            this.broadcastState(session);
+            this.broadcastJson(
+              session,
+              buildErrorMessage(
+                session.sessionId,
+                session.deviceId,
+                "SCRCPY_RUNTIME_ERROR",
+                error.message,
+                nowMs(),
+              ),
+            );
             log({ level: "error", event: "scrcpy_error", deviceId, message: error.message });
           },
           onClose: () => {
             if (session.status !== "STOPPED") {
               session.status = "STOPPED";
+              this.broadcastState(session);
             }
           },
         });
@@ -141,6 +206,7 @@ export class SessionManager {
       }
 
       session.status = "STOPPED";
+      this.broadcastState(session);
 
       if (session.idleTimer) {
         clearTimeout(session.idleTimer);
@@ -181,6 +247,15 @@ export class SessionManager {
     session.clients.add(client);
     lifecycleHook.onClientConnect(deviceId, session.clients.size);
     return session;
+  }
+
+  public markClientConfigured(deviceId: string, client: WebSocket): void {
+    const session = this.sessions.get(deviceId);
+    if (!session) {
+      return;
+    }
+
+    session.configuredClients.add(client);
   }
 
   public removeClient(deviceId: string, client: WebSocket): void {

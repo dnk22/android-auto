@@ -41,7 +41,11 @@ export class ThumbnailService {
           return;
         }
 
-        const jpeg = await this.toJpeg(session.lastKeyframe);
+        const frameForThumbnail = session.codecConfig && session.codecConfig.length > 0
+          ? Buffer.concat([session.codecConfig, session.lastKeyframe])
+          : session.lastKeyframe;
+
+        const jpeg = await this.toJpeg(frameForThumbnail);
         if (!jpeg) {
           return;
         }

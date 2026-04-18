@@ -5,22 +5,247 @@ import { createStreamSocketFromUrl } from "../services/mediaStream.js";
 import { useStore } from "../store/useStore.js";
 
 const FALLBACK_CODEC = "avc1.42E01E";
-const TIMESTAMP_STEP = 1;
 const MAX_DECODE_QUEUE = 8;
 const RECONNECT_BASE_DELAY_MS = 500;
 const RECONNECT_MAX_DELAY_MS = 3000;
+const FRAME_HEADER_BYTES = 9;
 
-function normalizeCodec(codec) {
-  const value = String(codec || "").toLowerCase();
-  if (value === "h264" || value === "avc") {
+function base64ToUint8Array(value) {
+  if (!value) {
+    return null;
+  }
+
+  const binary = atob(String(value));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return bytes;
+}
+
+function isStartCode(buffer, offset) {
+  return (
+    buffer[offset] === 0x00 &&
+    buffer[offset + 1] === 0x00 &&
+    (buffer[offset + 2] === 0x01 || (buffer[offset + 2] === 0x00 && buffer[offset + 3] === 0x01))
+  );
+}
+
+function findNaluRanges(buffer) {
+  const ranges = [];
+  let cursor = 0;
+
+  while (cursor < buffer.length - 3) {
+    let start = -1;
+    let startSize = 0;
+
+    for (let index = cursor; index < buffer.length - 3; index += 1) {
+      if (isStartCode(buffer, index)) {
+        start = index;
+        startSize = buffer[index + 2] === 0x01 ? 3 : 4;
+        break;
+      }
+    }
+
+    if (start === -1) {
+      break;
+    }
+
+    const payloadStart = start + startSize;
+    let nextStart = buffer.length;
+
+    for (let index = payloadStart; index < buffer.length - 3; index += 1) {
+      if (isStartCode(buffer, index)) {
+        nextStart = index;
+        break;
+      }
+    }
+
+    ranges.push({ payloadStart, nextStart });
+    cursor = nextStart;
+  }
+
+  return ranges;
+}
+
+function deriveCodecFromConfig(codecConfig) {
+  if (!(codecConfig instanceof Uint8Array) || codecConfig.length < 4) {
     return FALLBACK_CODEC;
+  }
+
+  if (codecConfig[0] === 0x01 && codecConfig.length >= 4) {
+    return `avc1.${codecConfig[1].toString(16).padStart(2, "0")}${codecConfig[2]
+      .toString(16)
+      .padStart(2, "0")}${codecConfig[3].toString(16).padStart(2, "0")}`;
+  }
+
+  for (const range of findNaluRanges(codecConfig)) {
+    const nalType = codecConfig[range.payloadStart] & 0x1f;
+    if (nalType === 7 && range.payloadStart + 3 < codecConfig.length) {
+      return `avc1.${codecConfig[range.payloadStart + 1]
+        .toString(16)
+        .padStart(2, "0")}${codecConfig[range.payloadStart + 2]
+        .toString(16)
+        .padStart(2, "0")}${codecConfig[range.payloadStart + 3]
+        .toString(16)
+        .padStart(2, "0")}`;
+    }
+  }
+
+  return FALLBACK_CODEC;
+}
+
+function buildAvcDecoderDescription(codecConfig) {
+  if (!(codecConfig instanceof Uint8Array) || codecConfig.length === 0) {
+    return null;
+  }
+
+  if (codecConfig[0] === 0x01) {
+    return codecConfig;
+  }
+
+  let sps = null;
+  let pps = null;
+
+  for (const range of findNaluRanges(codecConfig)) {
+    const nalType = codecConfig[range.payloadStart] & 0x1f;
+    const nalu = codecConfig.slice(range.payloadStart, range.nextStart);
+    if (nalType === 7 && !sps) {
+      sps = nalu;
+    }
+    if (nalType === 8 && !pps) {
+      pps = nalu;
+    }
+
+    if (sps && pps) {
+      break;
+    }
+  }
+
+  if (!sps || !pps || sps.length < 4 || pps.length === 0) {
+    return null;
+  }
+
+  const description = new Uint8Array(11 + sps.length + pps.length);
+  description[0] = 0x01;
+  description[1] = sps[1];
+  description[2] = sps[2];
+  description[3] = sps[3];
+  description[4] = 0xfc | 3;
+  description[5] = 0xe0 | 1;
+  description[6] = (sps.length >> 8) & 0xff;
+  description[7] = sps.length & 0xff;
+  description.set(sps, 8);
+  const ppsCountIndex = 8 + sps.length;
+  description[ppsCountIndex] = 0x01;
+  description[ppsCountIndex + 1] = (pps.length >> 8) & 0xff;
+  description[ppsCountIndex + 2] = pps.length & 0xff;
+  description.set(pps, ppsCountIndex + 3);
+
+  return description;
+}
+
+function convertAvcConfigToAnnexB(codecConfig) {
+  if (!(codecConfig instanceof Uint8Array) || codecConfig.length === 0) {
+    return null;
+  }
+
+  if (codecConfig[0] !== 0x01) {
+    return codecConfig;
+  }
+
+  if (codecConfig.length < 7) {
+    return null;
+  }
+
+  let offset = 5;
+  const spsCount = codecConfig[offset] & 0x1f;
+  offset += 1;
+
+  const chunks = [];
+  const startCode = new Uint8Array([0x00, 0x00, 0x00, 0x01]);
+
+  for (let i = 0; i < spsCount; i += 1) {
+    if (offset + 2 > codecConfig.length) {
+      return null;
+    }
+    const size = (codecConfig[offset] << 8) | codecConfig[offset + 1];
+    offset += 2;
+    if (offset + size > codecConfig.length) {
+      return null;
+    }
+    chunks.push(startCode, codecConfig.slice(offset, offset + size));
+    offset += size;
+  }
+
+  if (offset >= codecConfig.length) {
+    return null;
+  }
+
+  const ppsCount = codecConfig[offset];
+  offset += 1;
+  for (let i = 0; i < ppsCount; i += 1) {
+    if (offset + 2 > codecConfig.length) {
+      return null;
+    }
+    const size = (codecConfig[offset] << 8) | codecConfig[offset + 1];
+    offset += 2;
+    if (offset + size > codecConfig.length) {
+      return null;
+    }
+    chunks.push(startCode, codecConfig.slice(offset, offset + size));
+    offset += size;
+  }
+
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const result = new Uint8Array(totalLength);
+  let cursor = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, cursor);
+    cursor += chunk.length;
+  }
+
+  return result;
+}
+
+function hasSpsOrPpsNalu(frameData) {
+  if (!(frameData instanceof Uint8Array) || frameData.length < 5) {
+    return false;
+  }
+
+  for (const range of findNaluRanges(frameData)) {
+    const nalType = frameData[range.payloadStart] & 0x1f;
+    if (nalType === 7 || nalType === 8) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function concatUint8Arrays(first, second) {
+  const out = new Uint8Array(first.length + second.length);
+  out.set(first, 0);
+  out.set(second, first.length);
+  return out;
+}
+
+function normalizeCodec(codec, codecConfig) {
+  const value = String(codec || "").toLowerCase();
+  if (value.startsWith("avc1.")) {
+    return String(codec);
+  }
+
+  if (value === "h264" || value === "avc" || !value) {
+    return deriveCodecFromConfig(codecConfig);
   }
 
   return String(codec || FALLBACK_CODEC);
 }
 
-function parsePrefixedFrame(payload) {
-  if (!(payload instanceof Uint8Array) || payload.length < 2) {
+function parseBinaryFrame(payload) {
+  if (!(payload instanceof Uint8Array) || payload.length < FRAME_HEADER_BYTES + 1) {
     return null;
   }
 
@@ -29,9 +254,13 @@ function parsePrefixedFrame(payload) {
     return null;
   }
 
+  const timestampView = new DataView(payload.buffer, payload.byteOffset + 1, 8);
+  const timestampMs = Number(timestampView.getBigUint64(0, false));
+
   return {
     isKeyFrame: flag === 1,
-    data: payload.slice(1),
+    timestampUs: Math.max(0, Math.trunc(timestampMs * 1000)),
+    data: payload.slice(FRAME_HEADER_BYTES),
   };
 }
 
@@ -48,8 +277,13 @@ export default function H264Decoder({
 }) {
   const canvasRef = useRef(null);
   const decoderRef = useRef(null);
-  const timestampRef = useRef(0);
   const hasReceivedKeyFrameRef = useRef(false);
+  const hasLoggedFirstFrameRef = useRef(false);
+  const hasConfigRef = useRef(false);
+  const codecConfigAnnexBRef = useRef(null);
+  const lastTimestampUsRef = useRef(0);
+  const sessionIdRef = useRef("");
+  const connectEpochRef = useRef(0);
   const onSocketReadyRef = useRef(onSocketReady);
   const onFrameStateChangeRef = useRef(onFrameStateChange);
   const onPointerDownRef = useRef(onPointerDown);
@@ -96,7 +330,14 @@ export default function H264Decoder({
     let reconnectAttempt = 0;
     let reconnectTimer = null;
     let decoder;
+    const connectEpoch = connectEpochRef.current + 1;
+    connectEpochRef.current = connectEpoch;
     hasReceivedKeyFrameRef.current = false;
+    hasLoggedFirstFrameRef.current = false;
+    hasConfigRef.current = false;
+    codecConfigAnnexBRef.current = null;
+    lastTimestampUsRef.current = 0;
+    sessionIdRef.current = "";
 
     const destroyDecoder = () => {
       if (decoder) {
@@ -113,7 +354,10 @@ export default function H264Decoder({
     const resetDecoderState = () => {
       destroyDecoder();
       hasReceivedKeyFrameRef.current = false;
-      timestampRef.current = 0;
+      hasLoggedFirstFrameRef.current = false;
+      hasConfigRef.current = false;
+      codecConfigAnnexBRef.current = null;
+      lastTimestampUsRef.current = 0;
     };
 
     const clearReconnectTimer = () => {
@@ -170,6 +414,11 @@ export default function H264Decoder({
 
       const instance = new VideoDecoder({
         output: (frame) => {
+          if (!hasLoggedFirstFrameRef.current) {
+            hasLoggedFirstFrameRef.current = true;
+            console.info("[H264Decoder] first frame decoded", { serial });
+          }
+
           const canvas = canvasRef.current;
           if (!canvas) {
             frame.close();
@@ -194,7 +443,7 @@ export default function H264Decoder({
           onFrameStateChangeRef.current?.("rendering");
         },
         error: (error) => {
-          console.error(error);
+          console.error("[H264Decoder] decoder error", { serial, error });
           resetDecoderState();
           onFrameStateChangeRef.current?.("error");
           setConnectionState("error");
@@ -207,6 +456,12 @@ export default function H264Decoder({
         avc: { format: "annexb" },
         optimizeForLatency: true,
         hardwareAcceleration: "prefer-hardware",
+      });
+
+      console.info("[H264Decoder] decoder configured", {
+        serial,
+        codec,
+        annexBConfigBytes: codecConfigAnnexBRef.current?.byteLength ?? 0,
       });
       return instance;
     };
@@ -222,6 +477,11 @@ export default function H264Decoder({
 
       try {
         const streamInfo = await getDeviceStream(serial);
+        if (connectEpoch !== connectEpochRef.current) {
+          connecting = false;
+          return;
+        }
+
         connecting = false;
         if (cancelled) {
           return;
@@ -273,18 +533,83 @@ export default function H264Decoder({
             onFrameStateChangeRef.current?.("error");
           },
           onMessage: (event) => {
-            if (cancelled) {
+            if (cancelled || connectEpoch !== connectEpochRef.current) {
               return;
             }
 
             if (typeof event.data === "string") {
               try {
                 const message = JSON.parse(event.data);
+                if (message.type === "hello") {
+                  sessionIdRef.current = String(message.sessionId || "");
+                  return;
+                }
+
+                if (message.type === "state") {
+                  if (message.status === "ERROR") {
+                    console.error("[H264Decoder] stream state error", { serial, message });
+                    onFrameStateChangeRef.current?.("error");
+                  }
+                  return;
+                }
+
+                if (message.type === "error") {
+                  console.error("[H264Decoder] stream protocol error", { serial, message });
+                  onFrameStateChangeRef.current?.("error");
+                  return;
+                }
+
                 if (message.type === "config") {
-                  const codec = normalizeCodec(message.codec);
+                  const incomingSessionId = String(message.sessionId || "");
+                  if (sessionIdRef.current && incomingSessionId && incomingSessionId !== sessionIdRef.current) {
+                    console.warn("[H264Decoder] ignoring config from unexpected session", {
+                      serial,
+                      expected: sessionIdRef.current,
+                      got: incomingSessionId,
+                    });
+                    return;
+                  }
+
+                  if (incomingSessionId) {
+                    sessionIdRef.current = incomingSessionId;
+                  }
+
+                  const codecConfig = base64ToUint8Array(message.codecConfig);
+                  if (!codecConfig) {
+                    console.warn("[H264Decoder] config received without codecConfig", {
+                      serial,
+                      message,
+                    });
+                    drawFallback("Waiting for codec config");
+                    return;
+                  }
+
+                  const codec = normalizeCodec(message.codec, codecConfig);
+                  const annexBConfig = convertAvcConfigToAnnexB(codecConfig);
+                  if (!annexBConfig) {
+                    console.warn("[H264Decoder] unable to normalize codec config", {
+                      serial,
+                      codec,
+                      codecConfigBytes: codecConfig.byteLength,
+                    });
+                    drawFallback("Invalid codec config");
+                    return;
+                  }
+
+                  const description = buildAvcDecoderDescription(codecConfig);
+                  if (!description) {
+                    console.warn("[H264Decoder] codec config missing SPS/PPS", {
+                      serial,
+                      codec,
+                      codecConfigBytes: codecConfig.byteLength,
+                    });
+                  }
+
                   resetDecoderState();
+                  codecConfigAnnexBRef.current = annexBConfig;
                   decoder = createDecoder(codec);
                   decoderRef.current = decoder;
+                  hasConfigRef.current = Boolean(decoder);
                   onFrameStateChangeRef.current?.("connected");
                 }
               } catch (error) {
@@ -298,29 +623,31 @@ export default function H264Decoder({
               return;
             }
 
-            const prefixed = parsePrefixedFrame(payload);
-            if (!prefixed) {
+            const frame = parseBinaryFrame(payload);
+            if (!frame) {
               return;
             }
 
-            const { data, isKeyFrame } = prefixed;
+            const { data, isKeyFrame, timestampUs } = frame;
 
-            if (isKeyFrame) {
-              hasReceivedKeyFrameRef.current = true;
+            if (!decoder || !hasConfigRef.current) {
+              return;
             }
 
             if (!hasReceivedKeyFrameRef.current) {
-              return;
-            }
+              if (!isKeyFrame) {
+                return;
+              }
 
-            if (!decoder) {
-              return;
+              hasReceivedKeyFrameRef.current = true;
             }
 
             if (decoder.state === "closed") {
               decoder = null;
               decoderRef.current = null;
               hasReceivedKeyFrameRef.current = false;
+              hasLoggedFirstFrameRef.current = false;
+              hasConfigRef.current = false;
               return;
             }
 
@@ -328,17 +655,37 @@ export default function H264Decoder({
               return;
             }
 
+            let chunkData = data;
+            if (
+              isKeyFrame
+              && codecConfigAnnexBRef.current
+              && codecConfigAnnexBRef.current.length > 0
+              && !hasSpsOrPpsNalu(data)
+            ) {
+              chunkData = concatUint8Arrays(codecConfigAnnexBRef.current, data);
+            }
+
+            let safeTimestampUs = timestampUs;
+            if (safeTimestampUs <= lastTimestampUsRef.current) {
+              safeTimestampUs = lastTimestampUsRef.current + 1;
+            }
+            lastTimestampUsRef.current = safeTimestampUs;
+
             try {
               decoder.decode(
                 new EncodedVideoChunk({
                   type: isKeyFrame ? "key" : "delta",
-                  timestamp: timestampRef.current,
-                  data,
+                  timestamp: safeTimestampUs,
+                  data: chunkData,
                 })
               );
-              timestampRef.current += TIMESTAMP_STEP;
             } catch (error) {
-              console.error(error);
+              console.error("[H264Decoder] decode failed", {
+                serial,
+                error,
+                isKeyFrame,
+                queueSize: decoder.decodeQueueSize,
+              });
               resetDecoderState();
               onFrameStateChangeRef.current?.("error");
             }
@@ -347,6 +694,7 @@ export default function H264Decoder({
       } catch (error) {
         connecting = false;
         if (!cancelled) {
+          console.error("[H264Decoder] decoder setup failed", { serial, error });
           setConnectionState("error");
           scheduleReconnect();
         }
@@ -357,9 +705,13 @@ export default function H264Decoder({
 
     return () => {
       cancelled = true;
+      if (connectEpochRef.current === connectEpoch) {
+        connectEpochRef.current += 1;
+      }
       clearReconnectTimer();
       onFrameStateChangeRef.current?.("idle");
       resetDecoderState();
+      sessionIdRef.current = "";
       if (socket && socket.readyState <= WebSocket.OPEN) {
         socket.close();
       }

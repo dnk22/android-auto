@@ -181,11 +181,18 @@ def main() -> None:
         else:
             log_line("media    warning: scrcpy-server binary not found; set MEDIA_SCRCPY_SERVER_LOCAL_PATH manually")
 
-    if "MEDIA_SCRCPY_CLIENT_VERSION" not in media_env:
-        scrcpy_version = detect_scrcpy_version()
-        if scrcpy_version:
-            media_env["MEDIA_SCRCPY_CLIENT_VERSION"] = scrcpy_version
-            log_line(f"media    using scrcpy-client-version={scrcpy_version}")
+    detected_scrcpy_version = detect_scrcpy_version()
+    current_scrcpy_version = media_env.get("MEDIA_SCRCPY_CLIENT_VERSION")
+    if detected_scrcpy_version:
+        if current_scrcpy_version and current_scrcpy_version != detected_scrcpy_version:
+            log_line(
+                "media    overriding MEDIA_SCRCPY_CLIENT_VERSION="
+                f"{current_scrcpy_version} -> {detected_scrcpy_version}"
+            )
+        media_env["MEDIA_SCRCPY_CLIENT_VERSION"] = detected_scrcpy_version
+        log_line(f"media    using scrcpy-client-version={detected_scrcpy_version}")
+    elif current_scrcpy_version:
+        log_line(f"media    using MEDIA_SCRCPY_CLIENT_VERSION={current_scrcpy_version}")
 
     stop_stale_backend(8000, backend_dir)
 

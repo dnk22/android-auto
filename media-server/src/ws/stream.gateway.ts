@@ -2,7 +2,12 @@ import type { IncomingMessage, Server as HttpServer } from "node:http";
 import { WebSocketServer } from "ws";
 import type WebSocket from "ws";
 import type { SessionManager } from "../services/sessionManager.service";
-import { buildConfigMessage, wrapFrame } from "../utils/streamProtocol";
+import {
+  buildConfigMessage,
+  buildHelloMessage,
+  buildStateMessage,
+  wrapFrame,
+} from "../utils/streamProtocol";
 import { log } from "../utils/logger";
 
 const parseDeviceId = (pathname: string): string | null => {
@@ -42,18 +47,38 @@ export const createStreamGateway = (server: HttpServer, sessionManager: SessionM
     log({ level: "info", event: "ws_client_connected", deviceId, clients: session.clients.size });
 
     if (client.readyState === client.OPEN) {
-      client.send(
-        JSON.stringify(
-          buildConfigMessage(
-            session.videoWidth ?? 0,
-            session.videoHeight ?? 0,
+      client.send(JSON.stringify(buildHelloMessage(session.sessionId, session.deviceId)));
+      client.send(JSON.stringify(buildStateMessage(
+        session.sessionId,
+        session.deviceId,
+        session.status,
+        Date.now(),
+      )));
+
+      if (session.codecConfig && session.codecConfig.length > 0) {
+        client.send(
+          JSON.stringify(
+            buildConfigMessage(
+              session.sessionId,
+              session.deviceId,
+              session.videoWidth ?? 0,
+              session.videoHeight ?? 0,
+              session.codecConfig,
+              session.videoCodec,
+            ),
           ),
-        ),
-      );
+        );
+        sessionManager.markClientConfigured(deviceId, client);
+      }
     }
 
-    if (session.lastKeyframe && client.readyState === client.OPEN) {
-      client.send(wrapFrame(session.lastKeyframe, true), { binary: true });
+    if (
+      session.lastKeyframe
+      && session.codecConfig
+      && session.codecConfig.length > 0
+      && client.readyState === client.OPEN
+    ) {
+      client.send(wrapFrame(session.lastKeyframe, true, session.lastKeyframeAt ?? Date.now()), { binary: true });
     }
 
     client.on("close", () => {

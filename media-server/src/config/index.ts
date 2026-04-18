@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+
 export interface AppConfig {
   port: number;
   host: string;
@@ -52,6 +54,39 @@ const toOrigins = (value: string | undefined): string[] => {
   return Array.from(new Set([...parts, ...localDevOrigins]));
 };
 
+const detectScrcpyVersion = (serverLocalPath: string | undefined): string | undefined => {
+  if (process.env.MEDIA_SCRCPY_CLIENT_VERSION) {
+    return process.env.MEDIA_SCRCPY_CLIENT_VERSION;
+  }
+
+  if (serverLocalPath) {
+    const match = serverLocalPath.match(/\/scrcpy\/([0-9]+\.[0-9]+\.[0-9]+)\//);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  const result = spawnSync("scrcpy", ["--version"], {
+    encoding: "utf8",
+    timeout: 1000,
+  });
+  const combined = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+  for (const rawLine of combined.split("\n")) {
+    const line = rawLine.trim();
+    if (!line.toLowerCase().startsWith("scrcpy")) {
+      continue;
+    }
+    const parts = line.split(/\s+/);
+    if (parts.length >= 2) {
+      return parts[1];
+    }
+  }
+
+  return undefined;
+};
+
+const scrcpyServerLocalPath = process.env.MEDIA_SCRCPY_SERVER_LOCAL_PATH;
+
 export const config: AppConfig = {
   port: toNumber(process.env.MEDIA_PORT, 9100),
   host: process.env.MEDIA_HOST ?? "0.0.0.0",
@@ -63,6 +98,6 @@ export const config: AppConfig = {
   adbServerPort: toNumber(process.env.MEDIA_ADB_SERVER_PORT, 5037),
   scrcpyServerDevicePath:
     process.env.MEDIA_SCRCPY_SERVER_DEVICE_PATH ?? "/data/local/tmp/scrcpy-server.jar",
-  scrcpyServerLocalPath: process.env.MEDIA_SCRCPY_SERVER_LOCAL_PATH,
-  scrcpyClientVersion: process.env.MEDIA_SCRCPY_CLIENT_VERSION,
+  scrcpyServerLocalPath,
+  scrcpyClientVersion: detectScrcpyVersion(scrcpyServerLocalPath),
 };

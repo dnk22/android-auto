@@ -7,9 +7,15 @@ import type { ScrcpyMediaStreamPacket } from "@yume-chan/scrcpy";
 import { config } from "../config";
 import type { Session } from "../types/session";
 import { log } from "../utils/logger";
+import { deriveAvcCodecString } from "../utils/streamProtocol";
 
 interface StreamHandlers {
-  onConfig: (payload: { codec: "h264"; width: number; height: number; codecConfig?: Buffer }) => void;
+  onConfig: (payload: {
+    codec: string;
+    width: number;
+    height: number;
+    codecConfig?: Buffer;
+  }) => void;
   onFrame: (frame: Buffer, keyframeHint?: boolean) => void;
   onError: (error: Error) => void;
   onClose: () => void;
@@ -26,12 +32,6 @@ interface ScrcpyModules {
   AdbScrcpyOptionsLatest: typeof import("@yume-chan/adb-scrcpy").AdbScrcpyOptionsLatest;
   AdbScrcpyExitedError: typeof import("@yume-chan/adb-scrcpy").AdbScrcpyExitedError;
 }
-
-const hasAnnexBStartCode = (buffer: Buffer): boolean =>
-  (buffer.length >= 4
-    && buffer[0] === 0x00
-    && buffer[1] === 0x00
-    && ((buffer[2] === 0x01) || (buffer[2] === 0x00 && buffer[3] === 0x01)));
 
 export class ScrcpyService {
   private modulesPromise?: Promise<ScrcpyModules>;
@@ -56,13 +56,18 @@ export class ScrcpyService {
     return this.modulesPromise;
   }
 
-  private async ensureServerBinary(adb: Adb, modules: ScrcpyModules): Promise<void> {
+  private async ensureServerBinary(
+    adb: Adb,
+    modules: ScrcpyModules,
+  ): Promise<void> {
     if (!config.scrcpyServerLocalPath) {
       return;
     }
 
     await access(config.scrcpyServerLocalPath);
-    const stream = Readable.toWeb(createReadStream(config.scrcpyServerLocalPath));
+    const stream = Readable.toWeb(
+      createReadStream(config.scrcpyServerLocalPath),
+    );
     await modules.AdbScrcpyClient.pushServer(
       adb,
       stream as never,
@@ -70,7 +75,10 @@ export class ScrcpyService {
     );
   }
 
-  public async start(deviceId: string, handlers: StreamHandlers): Promise<ScrcpyRuntime> {
+  public async start(
+    deviceId: string,
+    handlers: StreamHandlers,
+  ): Promise<ScrcpyRuntime> {
     const modules = await this.loadModules();
     const adbClient = new modules.AdbServerClient(
       new modules.AdbServerNodeTcpConnector({
@@ -82,31 +90,43 @@ export class ScrcpyService {
     const adb = await adbClient.createAdb({ serial: deviceId });
     await this.ensureServerBinary(adb, modules);
 
-    const options: AdbScrcpyOptionsLatest<true> = new modules.AdbScrcpyOptionsLatest({
-      audio: false,
-      control: false,
-      cleanup: false,
-      video: true,
-      videoCodec: "h264",
-      videoBitRate: 2_000_000,
-      maxFps: 30,
-      sendFrameMeta: true,
-      sendCodecMeta: true,
-      tunnelForward: true,
-    }, {
-      version: config.scrcpyClientVersion,
-    });
+    const options: AdbScrcpyOptionsLatest<true> =
+      new modules.AdbScrcpyOptionsLatest(
+        {
+          video: true,
+          videoCodec: "h264",
+
+          maxSize: 1024, // 🔥 QUAN TRỌNG
+          videoBitRate: 1_000_000, // giảm xuống
+          maxFps: 60,
+
+          sendFrameMeta: true,
+          sendCodecMeta: true,
+          tunnelForward: true,
+
+          audio: false,
+          control: false,
+          cleanup: false,
+        },
+        {
+          version: config.scrcpyClientVersion,
+        },
+      );
 
     let client;
     try {
-      client = await modules.AdbScrcpyClient.start(adb, config.scrcpyServerDevicePath, options);
+      client = await modules.AdbScrcpyClient.start(
+        adb,
+        config.scrcpyServerDevicePath,
+        options,
+      );
     } catch (error) {
       await adb.close();
       if (error instanceof modules.AdbScrcpyExitedError) {
         const output = error.output.join(" | ").trim() || "(no output)";
         throw new Error(
-          `scrcpy server exited prematurely: ${output}. `
-          + "Set MEDIA_SCRCPY_SERVER_LOCAL_PATH to a valid scrcpy-server binary or ensure compatible server exists on device.",
+          `scrcpy server exited prematurely: ${output}. ` +
+            "Set MEDIA_SCRCPY_SERVER_LOCAL_PATH to a valid scrcpy-server binary or ensure compatible server exists on device.",
         );
       }
 
@@ -170,10 +190,10 @@ export class ScrcpyService {
           if (packet.type === "configuration") {
             const codecConfig = Buffer.from(packet.data);
             handlers.onConfig({
-              codec: "h264",
+              codec: deriveAvcCodecString(codecConfig),
               width: video.width,
               height: video.height,
-              codecConfig: hasAnnexBStartCode(codecConfig) ? codecConfig : undefined,
+              codecConfig,
             });
             continue;
           }
@@ -189,14 +209,16 @@ export class ScrcpyService {
       }
     })();
 
-    void client.exited.then(() => {
-      emitClose();
-    }).catch((error) => {
-      if (error instanceof Error) {
-        handlers.onError(error);
-      }
-      emitClose();
-    });
+    void client.exited
+      .then(() => {
+        emitClose();
+      })
+      .catch((error) => {
+        if (error instanceof Error) {
+          handlers.onError(error);
+        }
+        emitClose();
+      });
 
     return {
       stop: async () => {
