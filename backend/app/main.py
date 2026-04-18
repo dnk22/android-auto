@@ -87,7 +87,7 @@ allow_all = "*" in container.settings.cors_origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if allow_all else container.settings.cors_origins,
-    allow_credentials=not allow_all,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

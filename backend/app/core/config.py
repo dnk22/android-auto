@@ -46,10 +46,20 @@ def load_settings() -> Settings:
     if not nodes:
         nodes = ["http://127.0.0.1:9100"]
 
-    cors_raw = os.getenv("BACKEND_CORS_ORIGINS", "*")
+    cors_raw = os.getenv("BACKEND_CORS_ORIGINS", "")
     cors_origins = [origin.strip() for origin in cors_raw.split(",") if origin.strip()]
+
+    local_dev_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
     if not cors_origins:
         cors_origins = ["*"]
+    elif "*" not in cors_origins:
+        cors_origins = sorted(set(cors_origins + local_dev_origins))
 
     return Settings(
         host=os.getenv("BACKEND_HOST", "0.0.0.0"),

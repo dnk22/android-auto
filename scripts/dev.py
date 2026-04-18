@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import time
+import os
 from pathlib import Path
 from typing import Sequence
 
@@ -54,14 +55,29 @@ def main() -> None:
     else:
         media_cmd = [media_runner, "run", "dev"]
 
+    backend_env = os.environ.copy()
+    backend_env.setdefault("BACKEND_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+
+    frontend_env = os.environ.copy()
+    frontend_env.setdefault("VITE_BACKEND_URL", "/api")
+    frontend_env.setdefault("VITE_API_URL", "/api")
+    frontend_env.setdefault("VITE_WS_URL", "/ws/logs")
+    frontend_env.setdefault("VITE_DEVICE_WS_URL", "/ws/devices")
+    frontend_env.setdefault("VITE_STREAM_WS_URL", "/media")
+    frontend_env.setdefault("VITE_STREAM_HTTP_URL", "/media")
+    frontend_env.setdefault("VITE_MEDIA_HTTP_URL", "/media")
+
+    media_env = os.environ.copy()
+    media_env.setdefault("MEDIA_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+
     log_line("starting processes")
     log_line(f"backend  cwd={backend_dir} cmd={fmt_cmd(backend_cmd)}")
     log_line(f"frontend cwd={frontend_dir} cmd={fmt_cmd(frontend_cmd)}")
     log_line(f"media    cwd={media_dir} cmd={fmt_cmd(media_cmd)}")
 
-    backend_proc = subprocess.Popen(backend_cmd, cwd=backend_dir)
-    frontend_proc = subprocess.Popen(frontend_cmd, cwd=frontend_dir)
-    media_proc = subprocess.Popen(media_cmd, cwd=media_dir)
+    backend_proc = subprocess.Popen(backend_cmd, cwd=backend_dir, env=backend_env)
+    frontend_proc = subprocess.Popen(frontend_cmd, cwd=frontend_dir, env=frontend_env)
+    media_proc = subprocess.Popen(media_cmd, cwd=media_dir, env=media_env)
 
     procs = [
         ("backend", backend_proc),

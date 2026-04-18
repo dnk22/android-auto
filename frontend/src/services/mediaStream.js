@@ -1,5 +1,5 @@
 const STREAM_WS_URL_RAW =
-  import.meta.env.VITE_STREAM_WS_URL || "ws://localhost:9100";
+  import.meta.env.VITE_STREAM_WS_URL || "/media";
 
 const STREAM_WS_URL = STREAM_WS_URL_RAW.replace(/\/+$/, "");
 

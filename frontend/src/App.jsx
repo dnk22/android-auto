@@ -6,7 +6,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import { useDevices } from "./hooks/useDevices.ts";
 import { useStore } from "./store/useStore.js";
 
-const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws/logs";
+const WS_URL = import.meta.env.VITE_WS_URL || "/ws/logs";
 
 export default function App() {
   const addLog = useStore((state) => state.addLog);
