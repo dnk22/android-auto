@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchDevices } from "../api/device.api";
 import { createBackendDeviceSocket } from "../ws/backend.ws";
 import type { LegacyDevice } from "../types/device";
-import { useStore } from "../store/useStore.js";
+import { useStore } from "../store/useStore";
+import type { AppStore } from "../types/store/store.types";
 
 const sortById = (items: LegacyDevice[]): LegacyDevice[] => {
   const copy = [...items];
@@ -24,7 +25,7 @@ export function useDevices(): {
   const [error, setError] = useState("");
 
   const applySelection = useCallback((devices: LegacyDevice[]) => {
-    const current = useStore.getState();
+    const current = useStore.getState() as AppStore;
 
     if (current.selectedDevice && devices.some((item) => item.id === current.selectedDevice)) {
       return;

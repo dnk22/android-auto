@@ -36,8 +36,13 @@ class _StorageEventHandler(FileSystemEventHandler):
 
     def _schedule(self, coro) -> None:
         async def _wrapped() -> None:
-            await asyncio.sleep(self._debounce_sec)
-            await coro
+            try:
+                await asyncio.sleep(self._debounce_sec)
+                await coro
+            except asyncio.CancelledError:
+                return
+            except Exception as exc:  # noqa: BLE001
+                self._log("error", "watcher_task_error", error=str(exc))
 
         self._loop.call_soon_threadsafe(lambda: self._loop.create_task(_wrapped()))
 
@@ -45,6 +50,8 @@ class _StorageEventHandler(FileSystemEventHandler):
         if event.is_directory:
             return
         name = Path(event.src_path).name
+        if self._storage_service.is_ignored_name(name):
+            return
         self._log("info", "file_created", name=name)
         self._schedule(self._storage_service.handle_file_created(name))
 
@@ -52,6 +59,8 @@ class _StorageEventHandler(FileSystemEventHandler):
         if event.is_directory:
             return
         name = Path(event.src_path).name
+        if self._storage_service.is_ignored_name(name):
+            return
         self._log("info", "file_deleted", name=name)
         self._schedule(self._storage_service.handle_file_deleted(name))
 
@@ -60,6 +69,8 @@ class _StorageEventHandler(FileSystemEventHandler):
             return
         old_name = Path(event.src_path).name
         new_name = Path(event.dest_path).name
+        if self._storage_service.is_ignored_name(old_name) or self._storage_service.is_ignored_name(new_name):
+            return
         self._log("info", "file_renamed", oldName=old_name, newName=new_name)
         self._schedule(self._storage_service.handle_file_renamed(old_name, new_name))
 

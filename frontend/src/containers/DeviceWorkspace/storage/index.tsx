@@ -45,9 +45,21 @@ export default function StorageSectionContainer(): JSX.Element {
   const rowInfoByName = useMemo<Record<string, StorageRowInfo>>(() => {
     const info: Record<string, StorageRowInfo> = {};
     for (const row of sheet) {
+      let jobId: string | undefined;
+      if (typeof row.meta === "string" && row.meta.trim()) {
+        try {
+          const parsed = JSON.parse(row.meta);
+          if (parsed && typeof parsed === "object" && typeof parsed.jobId === "string") {
+            jobId = parsed.jobId;
+          }
+        } catch {
+          jobId = undefined;
+        }
+      }
+
       info[row.videoName] = {
         status: row.status,
-        jobId: typeof row.meta?.jobId === "string" ? row.meta.jobId : undefined,
+        jobId,
       };
     }
     return info;

@@ -36,6 +36,19 @@ class StorageService:
     def storage_path(self) -> Path:
         return self._storage_path
 
+    def is_ignored_name(self, file_name: str) -> bool:
+        name = file_name.strip()
+        lower = name.lower()
+        if not name:
+            return True
+        if lower == "automation.db":
+            return True
+        if lower.startswith("automation.db-"):
+            return True
+        if lower.endswith(".db-journal") or lower.endswith(".db-wal") or lower.endswith(".db-shm"):
+            return True
+        return False
+
     def _log(self, level: str, event: str, **meta: object) -> None:
         payload = {
             "ts": int(time.time()),
@@ -78,16 +91,24 @@ class StorageService:
         await self.ensure_storage_dir()
 
         def _collect() -> list[str]:
-            files = [item.name for item in self._storage_path.iterdir() if item.is_file()]
+            files = [
+                item.name
+                for item in self._storage_path.iterdir()
+                if item.is_file() and not self.is_ignored_name(item.name)
+            ]
             return sorted(files)
 
         return await asyncio.to_thread(_collect)
 
     async def has_file(self, video_name: str) -> bool:
+        if self.is_ignored_name(video_name):
+            return False
         target = self._storage_path / video_name
         return await asyncio.to_thread(target.exists)
 
     async def resolve_video_path(self, video_name: str) -> Path | None:
+        if self.is_ignored_name(video_name):
+            return None
         target = self._storage_path / video_name
         exists = await asyncio.to_thread(target.exists)
         return target if exists else None
@@ -102,6 +123,8 @@ class StorageService:
     async def handle_file_created(self, video_name: str) -> None:
         if self._sheet_service is None:
             return
+        if self.is_ignored_name(video_name):
+            return
 
         async with self._lock:
             created_by_duplicate = False
@@ -112,7 +135,14 @@ class StorageService:
                 generated = f"video_{int(time.time())}.mp4"
                 src = self._storage_path / video_name
                 dst = self._storage_path / generated
-                await asyncio.to_thread(src.rename, dst)
+                if not await asyncio.to_thread(src.exists):
+                    self._log("info", "transient_file_skipped", name=video_name)
+                    return
+                try:
+                    await asyncio.to_thread(src.rename, dst)
+                except FileNotFoundError:
+                    self._log("info", "transient_file_skipped", name=video_name)
+                    return
                 final_name = generated
                 created_by_duplicate = True
                 await self._emit_event(
@@ -138,10 +168,14 @@ class StorageService:
     async def handle_file_deleted(self, video_name: str) -> None:
         if self._sheet_service is None:
             return
+        if self.is_ignored_name(video_name):
+            return
         await self._sheet_service.mark_file_removed(video_name)
 
     async def handle_file_renamed(self, old_name: str, new_name: str) -> None:
         if self._sheet_service is None:
+            return
+        if self.is_ignored_name(old_name) or self.is_ignored_name(new_name):
             return
         await self._sheet_service.rename_video(old_name, new_name)
 

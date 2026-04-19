@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 
 import { deleteFile, getStorage, renameFile, stopJob } from "../api/automation.api";
 import { useAutomationStore } from "../store/automation.store";
-import type { AutomationWsEvent, DuplicateFileEvent, RenameFilePayload } from "../types/automation.types";
+import type { AutomationWsEvent, DuplicateFileEvent, RenameFilePayload, SheetStatus } from "../types/automation.types";
 
 const STORAGE_QUERY_KEY = ["automation", "storage"] as const;
 const SHEET_QUERY_KEY = ["automation", "sheet"] as const;
@@ -66,7 +66,7 @@ export function useStorage() {
 
   const deleteWithPolicy = async (input: {
     videoName: string;
-    rowStatus?: "idle" | "ready" | "running" | "done" | "error" | "missing_file";
+    rowStatus?: SheetStatus;
     jobId?: string;
   }): Promise<void> => {
     if (input.rowStatus === "ready") {

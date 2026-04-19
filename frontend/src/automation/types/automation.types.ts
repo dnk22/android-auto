@@ -1,31 +1,56 @@
-export type SheetStatus = "idle" | "ready" | "running" | "done" | "error" | "missing_file";
+export type SheetStatus =
+  | "idle"
+  | "queued"
+  | "ready"
+  | "running"
+  | "paused"
+  | "stopped"
+  | "done"
+  | "error"
+  | "missing_file";
+
+export type SessionStatus = "watching" | "idle";
 
 export type SheetRow = {
+  id: string;
   videoId: string;
   videoName: string;
-  products: string;
-  status: SheetStatus;
-  createdByDuplicate: boolean;
   deviceId: string;
+  products: string;
   hashtagInline?: string;
-  meta?: Record<string, any>;
-};
-
-export type SheetConfig = {
-  hashtagCommon?: string;
-  autoReady: boolean;
+  createdByDuplicate: boolean;
+  status: SheetStatus;
+  meta?: string | null;
+  version: number;
+  startedAt?: number | null;
+  finishedAt?: number | null;
+  createdAt: number;
+  updatedAt: number;
 };
 
 export type SheetResponse = {
   rows: SheetRow[];
-  config: SheetConfig;
+};
+
+export type SessionState = {
+  status: SessionStatus;
+  autoReady: boolean;
 };
 
 export type UpdateRowPayload = {
   products?: string;
   deviceId?: string;
   hashtagInline?: string;
-  meta?: Record<string, any>;
+  status?: SheetStatus;
+  meta?: string;
+  version?: number;
+  startedAt?: number | null;
+  finishedAt?: number | null;
+};
+
+export type UpdateSessionPayload = {
+  status?: SessionStatus;
+  autoReady?: boolean;
 };
 
 export type RenameFilePayload = {

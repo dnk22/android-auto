@@ -1,7 +1,7 @@
-import type { SheetConfig, SheetRow } from "../types/automation.types";
+import type { SheetRow } from "../types/automation.types";
 
-export function validateReadyRow(row: SheetRow, config: SheetConfig): string | null {
-  if (!config.hashtagCommon?.trim() && !row.hashtagInline?.trim()) {
+export function validateReadyRow(row: SheetRow): string | null {
+  if (!row.hashtagInline?.trim()) {
     return "Missing hashtag";
   }
 

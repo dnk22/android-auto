@@ -67,6 +67,7 @@ class AutomationRuntime:
         self._sheet_service = _sheet_service_mod.SheetService(
             logger=self._logger,
             ready_debounce_sec=self._settings.ready_debounce_sec,
+            storage_path=self._settings.storage_dir,
         )
         self._storage_service = _storage_service_mod.StorageService(
             settings=self._settings,
@@ -107,6 +108,7 @@ class AutomationRuntime:
         return self._router
 
     async def startup(self) -> None:
+        await self._sheet_service.startup()
         await self._storage_service.ensure_storage_dir()
         await self._storage_service.sync_sheet_from_storage()
         await self._job_queue.start()

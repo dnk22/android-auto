@@ -3,13 +3,16 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
 from app.automation.schemas.automation_schema import (
+    BulkUpdateSheetRequest,
     RenameFileRequest,
     RenameFileResponse,
     SetReadyResponse,
     SheetResponse,
     StorageListResponse,
+    UpdateSessionRequest,
     UpdateSheetRowRequest,
 )
+from app.automation.models.sheet_model import SessionState
 
 
 def build_router(sheet_service, storage_service, queue_service) -> APIRouter:
@@ -32,7 +35,7 @@ def build_router(sheet_service, storage_service, queue_service) -> APIRouter:
     @router.get("/automation/sheet", response_model=SheetResponse)
     async def get_sheet() -> SheetResponse:
         state = await sheet_service.list_sheet()
-        return SheetResponse(rows=state.rows, config=state.config)
+        return SheetResponse(rows=state.rows)
 
     @router.patch("/automation/sheet/{videoId}", response_model=SetReadyResponse)
     async def patch_sheet_row(videoId: str, payload: UpdateSheetRowRequest) -> SetReadyResponse:
@@ -41,6 +44,15 @@ def build_router(sheet_service, storage_service, queue_service) -> APIRouter:
             return SetReadyResponse(ok=True, row=row)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @router.put("/automation/sheet", response_model=SheetResponse)
+    async def bulk_update_sheet(payload: BulkUpdateSheetRequest) -> SheetResponse:
+        try:
+            await sheet_service.bulk_update_rows(payload.rows)
+            state = await sheet_service.list_sheet()
+            return SheetResponse(rows=state.rows)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @router.post("/automation/sheet/{videoId}/ready", response_model=SetReadyResponse)
     async def set_sheet_ready(videoId: str) -> SetReadyResponse:
@@ -57,6 +69,22 @@ def build_router(sheet_service, storage_service, queue_service) -> APIRouter:
             return {"ok": True, "job": job}
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.get("/automation/session", response_model=SessionState)
+    async def get_session() -> SessionState:
+        session = await sheet_service.get_session()
+        return session
+
+    @router.patch("/automation/session", response_model=SessionState)
+    async def patch_session(payload: UpdateSessionRequest) -> SessionState:
+        try:
+            session = await sheet_service.update_session(
+                status=payload.status,
+                auto_ready=payload.autoReady,
+            )
+            return session
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @router.get("/automation/storage", response_model=StorageListResponse)
     async def list_storage() -> StorageListResponse:

@@ -15,8 +15,6 @@ from app.automation.utils.validator import build_hashtag, parse_products
 class SheetServiceProtocol(Protocol):
     async def get_row(self, video_id: str): ...
 
-    async def get_config(self): ...
-
     async def on_job_status(self, video_id: str, status: str) -> None: ...
 
 
@@ -180,9 +178,8 @@ class JobQueueService:
             await self._set_error(job, "video file missing")
             return
 
-        config = await self._sheet_service.get_config()
         products = parse_products(row.products)
-        hashtag = build_hashtag(row, config)
+        hashtag = build_hashtag(row)
 
         if not products:
             await self._set_error(job, "products is empty")

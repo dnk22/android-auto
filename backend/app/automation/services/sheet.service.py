@@ -3,13 +3,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import sqlite3
 import time
 from pathlib import Path
 from typing import Protocol
 from uuid import uuid4
 
 from app.automation.models.job_model import AutomationJob
-from app.automation.models.sheet_model import SheetConfig, SheetRow, SheetState
+from app.automation.models.sheet_model import SessionState, SheetRow, SheetState
 from app.automation.schemas.automation_schema import UpdateSheetRowRequest
 from app.automation.utils.validator import validate_row
 
@@ -25,18 +26,37 @@ class JobQueueServiceProtocol(Protocol):
 
 
 class SheetService:
-    def __init__(self, *, logger: logging.Logger, ready_debounce_sec: float) -> None:
+    def __init__(
+        self,
+        *,
+        logger: logging.Logger,
+        ready_debounce_sec: float,
+        storage_path: Path,
+    ) -> None:
         self._logger = logger
         self._ready_debounce_sec = ready_debounce_sec
-        self._rows_by_id: dict[str, SheetRow] = {}
-        self._video_to_id: dict[str, str] = {}
-        self._config = SheetConfig()
+        self._session = SessionState()
         self._debounce_nonce: dict[str, int] = {}
         self._debounce_tasks: dict[str, asyncio.Task[None]] = {}
         self._lock = asyncio.Lock()
+        self._db_path = storage_path / "automation.db"
+        self._db_ready = False
 
         self._storage_service: StorageServiceProtocol | None = None
         self._queue_service: JobQueueServiceProtocol | None = None
+
+    async def startup(self) -> None:
+        await self._ensure_db_ready()
+
+    async def _ensure_db_ready(self) -> None:
+        if self._db_ready:
+            return
+
+        async with self._lock:
+            if self._db_ready:
+                return
+            await asyncio.to_thread(self._init_db_sync)
+            self._db_ready = True
 
     def _log(self, level: str, event: str, **meta: object) -> None:
         payload = {
@@ -58,61 +78,80 @@ class SheetService:
         self._queue_service = queue_service
 
     async def list_sheet(self) -> SheetState:
+        await self._ensure_db_ready()
         async with self._lock:
-            rows = list(self._rows_by_id.values())
-            return SheetState(rows=rows, config=self._config)
+            rows = await asyncio.to_thread(self._list_rows_sync)
+        return SheetState(rows=rows)
+
+    async def get_session(self) -> SessionState:
+        async with self._lock:
+            return self._session.model_copy(deep=True)
+
+    async def update_session(
+        self,
+        *,
+        status: str | None = None,
+        auto_ready: bool | None = None,
+    ) -> SessionState:
+        session_changed = False
+        next_status = status
+        if next_status is not None and next_status not in {"watching", "idle"}:
+            raise ValueError("invalid session status")
+
+        async with self._lock:
+            if next_status is not None and next_status != self._session.status:
+                self._session.status = next_status
+                session_changed = True
+            if auto_ready is not None and auto_ready != self._session.autoReady:
+                self._session.autoReady = auto_ready
+                session_changed = True
+
+            session_snapshot = self._session.model_copy(deep=True)
+
+        if not session_changed:
+            return session_snapshot
+
+        if session_snapshot.status == "watching":
+            await self._enqueue_ready_jobs()
+            return session_snapshot
+
+        if session_snapshot.status == "idle":
+            await self._stop_active_jobs_and_reset()
+            return session_snapshot
+
+        return session_snapshot
 
     async def get_row(self, video_id: str) -> SheetRow | None:
+        await self._ensure_db_ready()
         async with self._lock:
-            row = self._rows_by_id.get(video_id)
-            return row.model_copy(deep=True) if row else None
-
-    async def get_config(self) -> SheetConfig:
-        async with self._lock:
-            return self._config.model_copy(deep=True)
+            return await asyncio.to_thread(self._get_row_by_video_id_sync, video_id)
 
     async def get_video_name(self, video_id: str) -> str | None:
-        async with self._lock:
-            row = self._rows_by_id.get(video_id)
-            return row.videoName if row else None
+        row = await self.get_row(video_id)
+        return row.videoName if row else None
 
     async def has_video_name(self, video_name: str) -> bool:
+        await self._ensure_db_ready()
         async with self._lock:
-            return video_name in self._video_to_id
+            return await asyncio.to_thread(self._has_video_name_sync, video_name)
 
     async def upsert_from_storage(self, video_name: str, *, created_by_duplicate: bool) -> SheetRow:
-        video_id_base = Path(video_name).stem
+        await self._ensure_db_ready()
         async with self._lock:
-            existing_video_id = self._video_to_id.get(video_name)
-            if existing_video_id and existing_video_id in self._rows_by_id:
-                row = self._rows_by_id[existing_video_id]
-                row.status = "idle"
-                row.createdByDuplicate = created_by_duplicate
-                return row.model_copy(deep=True)
-
-            video_id = video_id_base
-            while video_id in self._rows_by_id:
-                video_id = f"{video_id_base}_{uuid4().hex[:6]}"
-
-            row = SheetRow(
-                videoId=video_id,
-                videoName=video_name,
-                products="",
-                status="idle",
-                createdByDuplicate=created_by_duplicate,
-                deviceId="",
-                hashtagInline=None,
-                meta={},
+            row = await asyncio.to_thread(
+                self._upsert_from_storage_sync,
+                video_name,
+                created_by_duplicate,
             )
-            self._rows_by_id[video_id] = row
-            self._video_to_id[video_name] = video_id
 
         self._log("info", "sheet_row_created", videoId=row.videoId, videoName=row.videoName)
         await self._auto_ready_if_needed(row.videoId)
         return row.model_copy(deep=True)
 
     async def mark_file_removed(self, video_name: str) -> SheetRow | None:
-        row = await self._get_row_by_video_name(video_name)
+        await self._ensure_db_ready()
+        async with self._lock:
+            row = await asyncio.to_thread(self._get_row_by_video_name_sync, video_name)
         if row is None:
             return None
 
@@ -120,68 +159,64 @@ class SheetService:
             await self._queue_service.stop_job_by_video_id(row.videoId)
 
         async with self._lock:
-            mutable = self._rows_by_id[row.videoId]
-            mutable.status = "missing_file"
-            return mutable.model_copy(deep=True)
+            return await asyncio.to_thread(self._update_status_sync, row.videoId, "missing_file")
 
     async def rename_video(self, old_name: str, new_name: str) -> SheetRow | None:
+        await self._ensure_db_ready()
         async with self._lock:
-            video_id = self._video_to_id.pop(old_name, None)
-            if video_id is None or video_id not in self._rows_by_id:
-                return None
-            self._video_to_id[new_name] = video_id
-            row = self._rows_by_id[video_id]
-            row.videoName = new_name
-            return row.model_copy(deep=True)
+            return await asyncio.to_thread(self._rename_video_sync, old_name, new_name)
 
     async def assert_can_delete(self, video_name: str) -> None:
-        row = await self._get_row_by_video_name(video_name)
+        await self._ensure_db_ready()
+        async with self._lock:
+            row = await asyncio.to_thread(self._get_row_by_video_name_sync, video_name)
         if row is None:
             return
         if row.status == "ready":
             raise ValueError("cannot delete file when row status is ready")
 
     async def update_row(self, video_id: str, payload: UpdateSheetRowRequest) -> SheetRow:
+        await self._ensure_db_ready()
         async with self._lock:
-            if video_id not in self._rows_by_id:
-                raise ValueError("row not found")
-
-            row = self._rows_by_id[video_id]
-            if row.status == "running":
-                raise ValueError("cannot edit row while running")
-
-            if payload.products is not None:
-                row.products = payload.products
-            if payload.device_id is not None:
-                row.deviceId = payload.device_id
-            if payload.hashtag_inline is not None:
-                row.hashtagInline = payload.hashtag_inline
-            if payload.meta is not None:
-                row.meta = payload.meta
-
-            updated = row.model_copy(deep=True)
+            updated = await asyncio.to_thread(self._update_row_sync, video_id, payload)
 
         await self._auto_ready_if_needed(video_id)
         return updated
 
+    async def bulk_update_rows(self, rows: list[SheetRow]) -> list[SheetRow]:
+        updated: list[SheetRow] = []
+        for row in rows:
+            payload = UpdateSheetRowRequest(
+                products=row.products,
+                deviceId=row.deviceId,
+                hashtagInline=row.hashtagInline,
+                status=row.status,
+                meta=row.meta,
+                version=row.version,
+                startedAt=row.startedAt,
+                finishedAt=row.finishedAt,
+            )
+            updated.append(await self.update_row(row.videoId, payload))
+        return updated
+
     async def set_ready(self, video_id: str) -> SheetRow:
+        await self._ensure_db_ready()
         if self._storage_service is None:
             raise RuntimeError("storage service is not bound")
 
         async with self._lock:
-            row = self._rows_by_id.get(video_id)
+            row = await asyncio.to_thread(self._get_row_by_video_id_sync, video_id)
             if row is None:
                 raise ValueError("row not found")
             if row.status == "running":
                 raise ValueError("row is running")
 
             exists = await self._storage_service.has_file(row.videoName)
-            ok, reason = validate_row(row, self._config, exists)
+            ok, reason = validate_row(row, exists)
             if not ok:
                 raise ValueError(reason or "row is invalid")
 
-            row.status = "ready"
-            updated = row.model_copy(deep=True)
+            updated = await asyncio.to_thread(self._update_status_sync, video_id, "ready")
 
             nonce = self._debounce_nonce.get(video_id, 0) + 1
             self._debounce_nonce[video_id] = nonce
@@ -198,19 +233,10 @@ class SheetService:
         return updated
 
     async def on_job_status(self, video_id: str, status: str) -> None:
+        await self._ensure_db_ready()
         async with self._lock:
-            row = self._rows_by_id.get(video_id)
-            if row is None:
-                return
-
-            if status == "running":
-                row.status = "running"
-            elif status == "done":
-                row.status = "done"
-            elif status == "error":
-                row.status = "error"
-            elif status == "stopped":
-                row.status = "idle"
+            mapped = "idle" if status == "stopped" else status
+            await asyncio.to_thread(self._update_status_sync, video_id, mapped)
 
     async def cancel(self) -> None:
         async with self._lock:
@@ -223,17 +249,9 @@ class SheetService:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def _get_row_by_video_name(self, video_name: str) -> SheetRow | None:
-        async with self._lock:
-            video_id = self._video_to_id.get(video_name)
-            if video_id is None:
-                return None
-            row = self._rows_by_id.get(video_id)
-            return row.model_copy(deep=True) if row else None
-
     async def _auto_ready_if_needed(self, video_id: str) -> None:
         async with self._lock:
-            auto_ready = self._config.autoReady
+            auto_ready = self._session.autoReady
         if not auto_ready:
             return
 
@@ -252,7 +270,10 @@ class SheetService:
                 if self._debounce_nonce.get(video_id) != nonce:
                     return
 
-                row = self._rows_by_id.get(video_id)
+                if self._session.status != "watching":
+                    return
+
+                row = await asyncio.to_thread(self._get_row_by_video_id_sync, video_id)
                 if row is None or row.status != "ready":
                     return
                 device_id = row.deviceId
@@ -260,10 +281,478 @@ class SheetService:
             job = await self._queue_service.enqueue(video_id, device_id)
 
             async with self._lock:
-                row = self._rows_by_id.get(video_id)
-                if row is not None:
-                    row.meta = {**(row.meta or {}), "jobId": job.jobId}
+                await asyncio.to_thread(self._set_meta_job_id_sync, video_id, job.jobId)
+                await asyncio.to_thread(self._update_status_sync, video_id, "queued")
 
             self._log("info", "job_enqueued", videoId=video_id, deviceId=device_id)
         except asyncio.CancelledError:
             return
+
+    async def _enqueue_ready_jobs(self) -> None:
+        if self._queue_service is None:
+            return
+
+        async with self._lock:
+            ready_rows = await asyncio.to_thread(self._list_rows_by_status_sync, "ready")
+
+        for row in ready_rows:
+            job = await self._queue_service.enqueue(row.videoId, row.deviceId)
+            async with self._lock:
+                await asyncio.to_thread(self._set_meta_job_id_sync, row.videoId, job.jobId)
+                await asyncio.to_thread(self._update_status_sync, row.videoId, "queued")
+
+    async def _stop_active_jobs_and_reset(self) -> None:
+        if self._queue_service is not None:
+            rows = await self.list_sheet()
+            for row in rows.rows:
+                if row.status in {"running", "queued"}:
+                    await self._queue_service.stop_job_by_video_id(row.videoId)
+
+        async with self._lock:
+            await asyncio.to_thread(self._reset_ready_queued_sync)
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self._db_path)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        return connection
+
+    def _init_db_sync(self) -> None:
+        self._db_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS videos (
+                    id TEXT PRIMARY KEY,
+                    video_name TEXT NOT NULL UNIQUE,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+                """
+            )
+            self._ensure_columns_sync(
+                connection,
+                "videos",
+                {
+                    "created_at": "INTEGER NOT NULL DEFAULT 0",
+                    "updated_at": "INTEGER NOT NULL DEFAULT 0",
+                },
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS jobs (
+                    id TEXT PRIMARY KEY,
+                    video_id TEXT NOT NULL UNIQUE,
+                    device_id TEXT,
+                    products TEXT,
+                    hashtag_inline TEXT,
+                    created_by_duplicate INTEGER DEFAULT 0,
+                    status TEXT NOT NULL,
+                    meta TEXT,
+                    version INTEGER DEFAULT 0,
+                    started_at INTEGER,
+                    finished_at INTEGER,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    FOREIGN KEY(video_id) REFERENCES videos(id)
+                )
+                """
+            )
+            self._ensure_columns_sync(
+                connection,
+                "jobs",
+                {
+                    "device_id": "TEXT",
+                    "products": "TEXT",
+                    "hashtag_inline": "TEXT",
+                    "created_by_duplicate": "INTEGER DEFAULT 0",
+                    "status": "TEXT NOT NULL DEFAULT 'idle'",
+                    "meta": "TEXT",
+                    "version": "INTEGER DEFAULT 0",
+                    "started_at": "INTEGER",
+                    "finished_at": "INTEGER",
+                    "created_at": "INTEGER NOT NULL DEFAULT 0",
+                    "updated_at": "INTEGER NOT NULL DEFAULT 0",
+                },
+            )
+            connection.commit()
+
+    def _ensure_columns_sync(
+        self,
+        connection: sqlite3.Connection,
+        table_name: str,
+        required_columns: dict[str, str],
+    ) -> None:
+        existing = {
+            str(row["name"])
+            for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()
+        }
+
+        for column_name, ddl in required_columns.items():
+            if column_name in existing:
+                continue
+            connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}")
+
+    def _list_rows_sync(self) -> list[SheetRow]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    j.id,
+                    v.id AS video_id,
+                    v.video_name,
+                    COALESCE(j.device_id, '') AS device_id,
+                    COALESCE(j.products, '') AS products,
+                    j.hashtag_inline,
+                    j.created_by_duplicate,
+                    j.status,
+                    j.meta,
+                    j.version,
+                    j.started_at,
+                    j.finished_at,
+                    j.created_at,
+                    j.updated_at
+                FROM jobs j
+                JOIN videos v ON v.id = j.video_id
+                ORDER BY j.created_at DESC
+                """
+            ).fetchall()
+        return [self._row_from_db(item) for item in rows]
+
+    def _list_rows_by_status_sync(self, status: str) -> list[SheetRow]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    j.id,
+                    v.id AS video_id,
+                    v.video_name,
+                    COALESCE(j.device_id, '') AS device_id,
+                    COALESCE(j.products, '') AS products,
+                    j.hashtag_inline,
+                    j.created_by_duplicate,
+                    j.status,
+                    j.meta,
+                    j.version,
+                    j.started_at,
+                    j.finished_at,
+                    j.created_at,
+                    j.updated_at
+                FROM jobs j
+                JOIN videos v ON v.id = j.video_id
+                WHERE j.status = ?
+                ORDER BY j.created_at DESC
+                """,
+                (status,),
+            ).fetchall()
+        return [self._row_from_db(item) for item in rows]
+
+    def _get_row_by_video_id_sync(self, video_id: str) -> SheetRow | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    j.id,
+                    v.id AS video_id,
+                    v.video_name,
+                    COALESCE(j.device_id, '') AS device_id,
+                    COALESCE(j.products, '') AS products,
+                    j.hashtag_inline,
+                    j.created_by_duplicate,
+                    j.status,
+                    j.meta,
+                    j.version,
+                    j.started_at,
+                    j.finished_at,
+                    j.created_at,
+                    j.updated_at
+                FROM jobs j
+                JOIN videos v ON v.id = j.video_id
+                WHERE v.id = ?
+                """,
+                (video_id,),
+            ).fetchone()
+        return self._row_from_db(row) if row else None
+
+    def _get_row_by_video_name_sync(self, video_name: str) -> SheetRow | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    j.id,
+                    v.id AS video_id,
+                    v.video_name,
+                    COALESCE(j.device_id, '') AS device_id,
+                    COALESCE(j.products, '') AS products,
+                    j.hashtag_inline,
+                    j.created_by_duplicate,
+                    j.status,
+                    j.meta,
+                    j.version,
+                    j.started_at,
+                    j.finished_at,
+                    j.created_at,
+                    j.updated_at
+                FROM jobs j
+                JOIN videos v ON v.id = j.video_id
+                WHERE v.video_name = ?
+                """,
+                (video_name,),
+            ).fetchone()
+        return self._row_from_db(row) if row else None
+
+    def _has_video_name_sync(self, video_name: str) -> bool:
+        with self._connect() as connection:
+            found = connection.execute(
+                "SELECT 1 FROM videos WHERE video_name = ?",
+                (video_name,),
+            ).fetchone()
+        return found is not None
+
+    def _upsert_from_storage_sync(self, video_name: str, created_by_duplicate: bool) -> SheetRow:
+        timestamp = int(time.time())
+        with self._connect() as connection:
+            existing = connection.execute(
+                "SELECT id FROM videos WHERE video_name = ?",
+                (video_name,),
+            ).fetchone()
+
+            if existing:
+                video_id = str(existing["id"])
+                connection.execute(
+                    """
+                    UPDATE jobs
+                    SET
+                        status = CASE WHEN status = 'missing_file' THEN 'idle' ELSE status END,
+                        created_by_duplicate = ?,
+                        updated_at = ?,
+                        version = version + 1
+                    WHERE video_id = ?
+                    """,
+                    (1 if created_by_duplicate else 0, timestamp, video_id),
+                )
+                connection.commit()
+                row = self._get_row_by_video_id_sync(video_id)
+                if row is None:
+                    raise RuntimeError("failed to load updated row")
+                return row
+
+            base = Path(video_name).stem or "video"
+            video_id = base
+            while connection.execute("SELECT 1 FROM videos WHERE id = ?", (video_id,)).fetchone():
+                video_id = f"{base}_{uuid4().hex[:6]}"
+
+            job_id = uuid4().hex
+            connection.execute(
+                """
+                INSERT INTO videos (id, video_name, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (video_id, video_name, timestamp, timestamp),
+            )
+            connection.execute(
+                """
+                INSERT INTO jobs (
+                    id,
+                    video_id,
+                    device_id,
+                    products,
+                    hashtag_inline,
+                    created_by_duplicate,
+                    status,
+                    meta,
+                    version,
+                    started_at,
+                    finished_at,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, '', '', NULL, ?, 'idle', ?, 0, NULL, NULL, ?, ?)
+                """,
+                (
+                    job_id,
+                    video_id,
+                    1 if created_by_duplicate else 0,
+                    json.dumps({"jobId": job_id}, ensure_ascii=True),
+                    timestamp,
+                    timestamp,
+                ),
+            )
+            connection.commit()
+
+        row = self._get_row_by_video_id_sync(video_id)
+        if row is None:
+            raise RuntimeError("failed to create row")
+        return row
+
+    def _rename_video_sync(self, old_name: str, new_name: str) -> SheetRow | None:
+        timestamp = int(time.time())
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT id FROM videos WHERE video_name = ?",
+                (old_name,),
+            ).fetchone()
+            if row is None:
+                return None
+            video_id = str(row["id"])
+            connection.execute(
+                "UPDATE videos SET video_name = ?, updated_at = ? WHERE id = ?",
+                (new_name, timestamp, video_id),
+            )
+            connection.execute(
+                "UPDATE jobs SET updated_at = ?, version = version + 1 WHERE video_id = ?",
+                (timestamp, video_id),
+            )
+            connection.commit()
+        return self._get_row_by_video_id_sync(video_id)
+
+    def _update_row_sync(self, video_id: str, payload: UpdateSheetRowRequest) -> SheetRow:
+        row = self._get_row_by_video_id_sync(video_id)
+        if row is None:
+            raise ValueError("row not found")
+        if row.status == "running":
+            raise ValueError("cannot edit row while running")
+        if payload.version is not None and payload.version != row.version:
+            raise ValueError("row version conflict")
+
+        meta_value = row.meta
+        if payload.meta is not None:
+            if isinstance(payload.meta, dict):
+                meta_value = json.dumps(payload.meta, ensure_ascii=True)
+            else:
+                meta_value = payload.meta
+
+        updates = {
+            "device_id": row.deviceId if payload.device_id is None else payload.device_id,
+            "products": row.products if payload.products is None else payload.products,
+            "hashtag_inline": row.hashtagInline if payload.hashtag_inline is None else payload.hashtag_inline,
+            "status": row.status if payload.status is None else payload.status,
+            "meta": meta_value,
+            "started_at": row.startedAt if payload.started_at is None else payload.started_at,
+            "finished_at": row.finishedAt if payload.finished_at is None else payload.finished_at,
+        }
+
+        timestamp = int(time.time())
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE jobs
+                SET
+                    device_id = ?,
+                    products = ?,
+                    hashtag_inline = ?,
+                    status = ?,
+                    meta = ?,
+                    started_at = ?,
+                    finished_at = ?,
+                    updated_at = ?,
+                    version = version + 1
+                WHERE video_id = ?
+                """,
+                (
+                    updates["device_id"],
+                    updates["products"],
+                    updates["hashtag_inline"],
+                    updates["status"],
+                    updates["meta"],
+                    updates["started_at"],
+                    updates["finished_at"],
+                    timestamp,
+                    video_id,
+                ),
+            )
+            connection.commit()
+
+        updated = self._get_row_by_video_id_sync(video_id)
+        if updated is None:
+            raise RuntimeError("failed to reload row")
+        return updated
+
+    def _update_status_sync(self, video_id: str, status: str) -> SheetRow:
+        timestamp = int(time.time())
+        with self._connect() as connection:
+            started_at = None
+            finished_at = None
+            if status == "running":
+                started_at = timestamp
+            elif status in {"done", "error", "stopped", "idle"}:
+                finished_at = timestamp
+
+            connection.execute(
+                """
+                UPDATE jobs
+                SET
+                    status = ?,
+                    started_at = COALESCE(?, started_at),
+                    finished_at = COALESCE(?, finished_at),
+                    updated_at = ?,
+                    version = version + 1
+                WHERE video_id = ?
+                """,
+                (status, started_at, finished_at, timestamp, video_id),
+            )
+            connection.commit()
+
+        updated = self._get_row_by_video_id_sync(video_id)
+        if updated is None:
+            raise RuntimeError("failed to reload status")
+        return updated
+
+    def _set_meta_job_id_sync(self, video_id: str, job_id: str) -> None:
+        row = self._get_row_by_video_id_sync(video_id)
+        if row is None:
+            return
+
+        payload: dict[str, str] = {"jobId": job_id}
+        if row.meta:
+            try:
+                decoded = json.loads(row.meta)
+                if isinstance(decoded, dict):
+                    payload = {**decoded, "jobId": job_id}
+            except json.JSONDecodeError:
+                payload = {"jobId": job_id, "raw": row.meta}
+
+        timestamp = int(time.time())
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE jobs
+                SET meta = ?, updated_at = ?, version = version + 1
+                WHERE video_id = ?
+                """,
+                (json.dumps(payload, ensure_ascii=True), timestamp, video_id),
+            )
+            connection.commit()
+
+    def _reset_ready_queued_sync(self) -> None:
+        timestamp = int(time.time())
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE jobs
+                SET
+                    status = 'idle',
+                    updated_at = ?,
+                    version = version + 1
+                WHERE status IN ('ready', 'queued')
+                """,
+                (timestamp,),
+            )
+            connection.commit()
+
+    def _row_from_db(self, row: sqlite3.Row) -> SheetRow:
+        return SheetRow(
+            id=str(row["id"]),
+            videoId=str(row["video_id"]),
+            videoName=str(row["video_name"]),
+            deviceId=str(row["device_id"] or ""),
+            products=str(row["products"] or ""),
+            hashtagInline=row["hashtag_inline"],
+            createdByDuplicate=bool(row["created_by_duplicate"]),
+            status=str(row["status"]),
+            meta=row["meta"],
+            version=int(row["version"] or 0),
+            startedAt=row["started_at"],
+            finishedAt=row["finished_at"],
+            createdAt=int(row["created_at"]),
+            updatedAt=int(row["updated_at"]),
+        )

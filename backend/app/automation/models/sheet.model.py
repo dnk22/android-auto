@@ -1,29 +1,43 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 
-SheetStatus = Literal["idle", "ready", "running", "done", "error", "missing_file"]
-
+SheetStatus = Literal[
+    "idle",
+    "queued",
+    "ready",
+    "running",
+    "paused",
+    "stopped",
+    "done",
+    "error",
+    "missing_file",
+]
 
 class SheetRow(BaseModel):
+    id: str
     videoId: str
     videoName: str
-    products: str
-    status: SheetStatus
-    createdByDuplicate: bool = False
     deviceId: str
+    products: str
     hashtagInline: str | None = None
-    meta: dict[str, Any] | None = None
+    createdByDuplicate: bool = False
+    status: SheetStatus
+    meta: str | None = None
+    version: int = 0
+    startedAt: int | None = None
+    finishedAt: int | None = None
+    createdAt: int
+    updatedAt: int
 
 
-class SheetConfig(BaseModel):
-    hashtagCommon: str | None = None
+class SessionState(BaseModel):
+    status: Literal["watching", "idle"] = "idle"
     autoReady: bool = False
 
 
 class SheetState(BaseModel):
     rows: list[SheetRow] = Field(default_factory=list)
-    config: SheetConfig = Field(default_factory=SheetConfig)

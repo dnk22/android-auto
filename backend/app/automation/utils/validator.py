@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.automation.models.sheet_model import SheetConfig, SheetRow
+from app.automation.models.sheet_model import SheetRow
 
 
 def parse_products(raw_products: str) -> list[str]:
@@ -8,15 +8,13 @@ def parse_products(raw_products: str) -> list[str]:
     return [item for item in chunks if item]
 
 
-def build_hashtag(row: SheetRow, config: SheetConfig) -> str | None:
-    if config.hashtagCommon and config.hashtagCommon.strip():
-        return config.hashtagCommon.strip()
+def build_hashtag(row: SheetRow) -> str | None:
     if row.hashtagInline and row.hashtagInline.strip():
         return row.hashtagInline.strip()
     return None
 
 
-def validate_row(row: SheetRow, config: SheetConfig, file_exists: bool) -> tuple[bool, str | None]:
+def validate_row(row: SheetRow, file_exists: bool) -> tuple[bool, str | None]:
     if not file_exists:
         return False, "missing file"
 
@@ -26,7 +24,7 @@ def validate_row(row: SheetRow, config: SheetConfig, file_exists: bool) -> tuple
     if not parse_products(row.products):
         return False, "products is required"
 
-    if build_hashtag(row, config) is None:
-        return False, "hashtagInline is required when hashtagCommon is empty"
+    if build_hashtag(row) is None:
+        return False, "hashtagInline is required"
 
     return True, None

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.automation.models.sheet_model import SheetConfig, SheetRow
+from app.automation.models.sheet_model import SessionState, SheetRow
 from app.automation.models.job_model import AutomationJob
 
 
@@ -14,24 +14,29 @@ class UpdateSheetRowRequest(BaseModel):
     products: str | None = None
     device_id: str | None = Field(default=None, alias="deviceId")
     hashtag_inline: str | None = Field(default=None, alias="hashtagInline")
-    meta: dict[str, Any] | None = None
-
-
-class UpdateSheetConfigRequest(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    hashtag_common: str | None = Field(default=None, alias="hashtagCommon")
-    auto_ready: bool | None = Field(default=None, alias="autoReady")
+    status: str | None = None
+    meta: str | dict[str, Any] | None = None
+    version: int | None = None
+    started_at: int | None = Field(default=None, alias="startedAt")
+    finished_at: int | None = Field(default=None, alias="finishedAt")
 
 
 class SheetResponse(BaseModel):
     rows: list[SheetRow]
-    config: SheetConfig
+
+
+class BulkUpdateSheetRequest(BaseModel):
+    rows: list[SheetRow]
 
 
 class SetReadyResponse(BaseModel):
     ok: bool
     row: SheetRow
+
+
+class UpdateSessionRequest(BaseModel):
+    status: Literal["watching", "idle"] | None = None
+    autoReady: bool | None = None
 
 
 class RenameFileRequest(BaseModel):
