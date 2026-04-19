@@ -6,3 +6,5 @@ fastapi
 uvicorn[standard]
 uiautomator2
 adbutils
+watchdog
+aiofiles

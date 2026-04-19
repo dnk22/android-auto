@@ -7,6 +7,7 @@ from types import ModuleType
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import automation
 from app.core.config import load_settings
 from app.core.state import AppContainer
 from app.services.device.adb_watcher import AdbWatcher
@@ -92,6 +93,7 @@ app.add_middleware(
 )
 
 _include_routers(app, container)
+app.include_router(automation.get_router())
 
 
 @app.websocket("/ws/devices")
@@ -117,9 +119,11 @@ async def logs_ws(websocket: WebSocket) -> None:
 @app.on_event("startup")
 async def on_startup() -> None:
     await container.adb_watcher.start()
+    await automation.startup()
 
 
 @app.on_event("shutdown")
 async def on_shutdown() -> None:
+    await automation.shutdown()
     await container.adb_watcher.stop()
     await container.media_client.close()
