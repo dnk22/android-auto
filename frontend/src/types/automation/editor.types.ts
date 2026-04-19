@@ -1,11 +1,13 @@
-import type { FieldArrayWithId, UseFormRegister } from "react-hook-form";
+import type { Control, FieldArrayWithId, UseFormRegister } from "react-hook-form";
 import type {
   SheetRow,
   UpdateRowPayload,
 } from "../../automation/types/automation.types";
 
 export interface SheetEditorFormRow
-  extends Omit<SheetRow, "hashtagInline" | "meta" | "startedAt" | "finishedAt"> {
+  extends Omit<SheetRow, "deviceId" | "products" | "hashtagInline" | "meta" | "startedAt" | "finishedAt"> {
+  deviceId: string[];
+  products: string[];
   hashtagInline: string;
   meta: string;
   startedAt: string;
@@ -27,6 +29,7 @@ export type SessionToolbarAction = "watching" | "idle" | "toggle-auto-ready";
 export interface SheetEditorTableProps {
   fields: SheetEditorFieldRow[];
   register: UseFormRegister<SheetEditorFormValues>;
+  control: Control<SheetEditorFormValues>;
   deviceOptions: string[];
   onSaveRow: (index: number) => void;
   loading: boolean;

@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import type { AppStore, ThemeMode } from "../types/store/store.types";
 
+export const selectHasU2Device = (state: AppStore): boolean =>
+  state.devices.some((device) => Boolean(device.u2));
+
 const getInitialTheme = (): ThemeMode => {
   if (typeof window === "undefined") {
     return "light";

@@ -28,9 +28,7 @@ export type SheetRow = {
   updatedAt: number;
 };
 
-export type SheetResponse = {
-  rows: SheetRow[];
-};
+export type SheetResponse = SheetRow[];
 
 export type SessionState = {
   status: SessionStatus;

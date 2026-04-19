@@ -21,8 +21,7 @@ class UpdateSheetRowRequest(BaseModel):
     finished_at: int | None = Field(default=None, alias="finishedAt")
 
 
-class SheetResponse(BaseModel):
-    rows: list[SheetRow]
+SheetResponse = list[SheetRow]
 
 
 class BulkUpdateSheetRequest(BaseModel):

@@ -320,6 +320,9 @@ class SheetService:
     def _init_db_sync(self) -> None:
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
+            # Session state is now in-memory only; remove legacy persisted session tables.
+            connection.execute("DROP TABLE IF EXISTS automation_session")
+            connection.execute("DROP TABLE IF EXISTS sessions")
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS videos (

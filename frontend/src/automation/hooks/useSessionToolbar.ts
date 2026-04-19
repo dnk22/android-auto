@@ -1,13 +1,14 @@
 import { useCallback, useMemo } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "react-toastify";
+import { useQuery } from "@tanstack/react-query";
 
-import { getSession, updateSession } from "../api/automation.api";
+import { getSession } from "../api/automation.api";
+import {
+  SESSION_QUERY_KEY,
+  useSessionActionMutation,
+} from "../store/automation.mutations.store";
 import { SESSION_TOOLBAR_ACTION } from "../utils/sessionToolbar.constants";
 import type { SessionToolbarAction } from "../../types/automation/editor.types";
 import type { SessionStatus } from "../types/automation.types";
-
-const SESSION_QUERY_KEY = ["automation", "session"];
 
 export function useSessionToolbar(): {
   sessionStatusText: string;
@@ -19,26 +20,13 @@ export function useSessionToolbar(): {
   handleAutoReady: () => void;
   isLoading: boolean;
 } {
-  const queryClient = useQueryClient();
-
   const sessionQuery = useQuery({
     queryKey: SESSION_QUERY_KEY,
     queryFn: getSession,
   });
 
   const session = sessionQuery.data;
-
-  const sessionActionMutation = useMutation({
-    mutationFn: updateSession,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
-    },
-    onError: (error) => {
-      toast.error(
-        error instanceof Error ? error.message : "Session action failed",
-      );
-    },
-  });
+  const sessionActionMutation = useSessionActionMutation();
 
   const runSessionAction = useCallback(
     (action: SessionToolbarAction): void => {

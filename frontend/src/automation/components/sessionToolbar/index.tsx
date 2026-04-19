@@ -1,7 +1,10 @@
 import { ArrowCircleRight, Autobrightness, Pause } from "iconsax-reactjs";
 import { useSessionToolbar } from "../../hooks/useSessionToolbar";
+import { selectHasU2Device, useStore } from "../../../store/useStore";
 
 export function SessionToolbar(): JSX.Element {
+  const hasU2Device = useStore(selectHasU2Device);
+
   const {
     sessionStatusText,
     autoReadyText,
@@ -27,9 +30,15 @@ export function SessionToolbar(): JSX.Element {
         <button
           type="button"
           onClick={isWatching ? handleIdle : handleWatching}
+          disabled={!hasU2Device}
           className={`rounded-lg px-3 py-1.5 text-xs font-semibold text-white flex items-center gap-1 transition-colors ${
-            isWatching ? "bg-yellow-600" : "bg-emerald-600"
+            !hasU2Device
+              ? "cursor-not-allowed bg-gray-400"
+              : isWatching
+                ? "bg-yellow-600"
+                : "bg-emerald-600"
           }`}
+          title={hasU2Device ? undefined : "Cần ít nhất 1 device có u2 = true"}
         >
           {isWatching ? (
             <>
@@ -47,8 +56,13 @@ export function SessionToolbar(): JSX.Element {
         <button
           type="button"
           onClick={handleAutoReady}
+          disabled={!hasU2Device}
           className={`rounded-lg px-3 py-1.5 text-xs font-semibold text-white flex items-center gap-1 transition-colors ${
-            isAutoReady ? "bg-emerald-600" : "bg-gray-500"
+            !hasU2Device
+              ? "cursor-not-allowed bg-gray-400"
+              : isAutoReady
+                ? "bg-emerald-600"
+                : "bg-gray-500"
           }`}
         >
           <Autobrightness size="20" color="white" />

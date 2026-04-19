@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.9",
+    "@tanstack/react-table": "^8.21.3",
     "@yume-chan/scrcpy-decoder-webcodecs": "^2.5.3",
     "axios": "^1.9.0",
     "iconsax-reactjs": "^0.0.8",
@@ -18,14 +19,14 @@
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.3.5",
     "react-hook-form": "^7.56.4",
-    "react-window": "^1.8.10",
     "react-toastify": "^11.0.5",
+    "react-window": "^1.8.10",
     "zustand": "^4.5.5"
   },
   "devDependencies": {
-    "@types/react-window": "^1.8.8",
     "@types/react": "^18.3.16",
     "@types/react-dom": "^18.3.5",
+    "@types/react-window": "^1.8.8",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.40",

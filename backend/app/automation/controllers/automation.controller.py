@@ -2,17 +2,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
+from app.automation.models.sheet_model import SessionState, SheetRow
 from app.automation.schemas.automation_schema import (
     BulkUpdateSheetRequest,
     RenameFileRequest,
     RenameFileResponse,
     SetReadyResponse,
-    SheetResponse,
     StorageListResponse,
     UpdateSessionRequest,
     UpdateSheetRowRequest,
 )
-from app.automation.models.sheet_model import SessionState
 
 
 def build_router(sheet_service, storage_service, queue_service) -> APIRouter:
@@ -32,10 +31,10 @@ def build_router(sheet_service, storage_service, queue_service) -> APIRouter:
         finally:
             await storage_service.unsubscribe_events(queue)
 
-    @router.get("/automation/sheet", response_model=SheetResponse)
-    async def get_sheet() -> SheetResponse:
+    @router.get("/automation/sheet", response_model=list[SheetRow])
+    async def get_sheet() -> list[SheetRow]:
         state = await sheet_service.list_sheet()
-        return SheetResponse(rows=state.rows)
+        return state.rows
 
     @router.patch("/automation/sheet/{videoId}", response_model=SetReadyResponse)
     async def patch_sheet_row(videoId: str, payload: UpdateSheetRowRequest) -> SetReadyResponse:
@@ -45,12 +44,12 @@ def build_router(sheet_service, storage_service, queue_service) -> APIRouter:
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    @router.put("/automation/sheet", response_model=SheetResponse)
-    async def bulk_update_sheet(payload: BulkUpdateSheetRequest) -> SheetResponse:
+    @router.put("/automation/sheet", response_model=list[SheetRow])
+    async def bulk_update_sheet(payload: BulkUpdateSheetRequest) -> list[SheetRow]:
         try:
             await sheet_service.bulk_update_rows(payload.rows)
             state = await sheet_service.list_sheet()
-            return SheetResponse(rows=state.rows)
+            return state.rows
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
