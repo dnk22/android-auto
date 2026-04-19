@@ -1,6 +1,6 @@
 import DevicePreviewView from "../../components/DevicePreview/DevicePreviewView.jsx";
 import DevicePreviewSectionContainer from "./device-preview/index.jsx";
-import StorageSectionContainer from "./storage/index.jsx";
+import StorageSectionContainer from "./storage";
 import { useDeviceWorkspaceTabs } from "./hooks/useDeviceWorkspaceTabs.js";
 
 export default function DeviceWorkspaceContainer() {

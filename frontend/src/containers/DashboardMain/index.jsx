@@ -14,9 +14,9 @@ export default function DashboardMainContainer() {
 
   return (
     <main className="flex h-full w-full flex-col gap-4">
-      <DashboardSummarySection selectedDeviceInfo={selectedDeviceInfo} />
+      {/* <DashboardSummarySection selectedDeviceInfo={selectedDeviceInfo} /> */}
       <AutomationPage />
-      <DashboardLogSection />
+      {/* <DashboardLogSection /> */}
     </main>
   );
 }

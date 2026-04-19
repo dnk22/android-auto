@@ -1,13 +1,9 @@
 import { CommonConfig } from "./CommonConfig";
 import { AutomationTable } from "./AutomationTable";
-import { StoragePanel } from "./StoragePanel";
-import { DuplicateModal } from "./DuplicateModal";
 import { useAutomationSheet } from "../hooks/useAutomationSheet";
-import { useStorageEvents } from "../hooks/useStorage";
 
 export function AutomationPage(): JSX.Element {
   const { loading, error, isRefetching } = useAutomationSheet();
-  useStorageEvents();
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-4">
@@ -25,11 +21,7 @@ export function AutomationPage(): JSX.Element {
         </div>
       ) : null}
 
-      <StoragePanel />
-
       {isRefetching ? <p className="text-xs text-[var(--muted)]">Syncing with backend...</p> : null}
-
-      <DuplicateModal />
     </section>
   );
 }
