@@ -88,7 +88,9 @@ export default function SidebarContainer() {
         <ul className="mt-3 space-y-2 text-sm">
           {devices.length === 0 ? (
             <li className="text-[var(--muted)]">
-              Không có thiết bị nào được phát hiện
+              <div className="flex h-20 w-full items-center justify-center rounded-2xl border border-dashed border-[var(--card-border)] bg-[var(--panel-soft)] px-4 text-sm text-[var(--muted)]">
+                Không có thiết bị nào được phát hiện
+              </div>
             </li>
           ) : (
             devices.map((device) => {
