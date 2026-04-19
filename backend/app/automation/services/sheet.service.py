@@ -257,7 +257,13 @@ class SheetService:
                     return
                 device_id = row.deviceId
 
-            await self._queue_service.enqueue(video_id, device_id)
+            job = await self._queue_service.enqueue(video_id, device_id)
+
+            async with self._lock:
+                row = self._rows_by_id.get(video_id)
+                if row is not None:
+                    row.meta = {**(row.meta or {}), "jobId": job.jobId}
+
             self._log("info", "job_enqueued", videoId=video_id, deviceId=device_id)
         except asyncio.CancelledError:
             return

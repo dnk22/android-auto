@@ -13,8 +13,8 @@ export default function DashboardSummarySection({ selectedDeviceInfo }) {
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">
-        <span className="rounded-full bg-[var(--chip-warm-bg)] px-3 py-1 text-[var(--ink)]">
-          Coming soon: sheet editor
+        <span className="rounded-full bg-[var(--chip-success-bg)] px-3 py-1 text-[var(--chip-success-fg)]">
+          Automation editor live
         </span>
         <span>
           {selectedDeviceInfo
