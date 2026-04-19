@@ -67,6 +67,69 @@ def detect_scrcpy_version() -> str | None:
 
 
 def stop_stale_backend(port: int, backend_dir: Path) -> None:
+    backend_dir_str = str(backend_dir.resolve())
+
+    def _read_pid_command(pid: str) -> str:
+        result = subprocess.run(
+            ["ps", "-ww", "-p", pid, "-o", "command="],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.stdout.strip()
+
+    def _read_pid_cwd(pid: str) -> str:
+        result = subprocess.run(
+            ["lsof", "-a", "-p", pid, "-d", "cwd", "-Fn"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        for raw in result.stdout.splitlines():
+            if raw.startswith("n"):
+                return raw[1:].strip()
+        return ""
+
+    def _read_ppid(pid: str) -> str:
+        result = subprocess.run(
+            ["ps", "-p", pid, "-o", "ppid="],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.stdout.strip()
+
+    def _is_backend_process(pid: str, command: str, cwd: str) -> bool:
+        cmd = command.lower()
+        in_backend_cwd = cwd == backend_dir_str
+        has_backend_path = backend_dir_str in command
+        has_backend_marker = (
+            "run.py" in cmd
+            or "app.main:app" in cmd
+            or "uvicorn" in cmd
+            or "multiprocessing-fork" in cmd
+        )
+        is_python_like = "python" in cmd or "uvicorn" in cmd
+        return is_python_like and (in_backend_cwd or has_backend_path or has_backend_marker)
+
+    def _collect_backend_ancestors(seed_pid: str) -> list[str]:
+        collected: list[str] = []
+        seen: set[str] = set()
+        current = seed_pid
+        while current and current not in seen:
+            seen.add(current)
+            ppid = _read_ppid(current)
+            if not ppid or ppid == "0" or ppid == "1":
+                break
+
+            command = _read_pid_command(ppid)
+            cwd = _read_pid_cwd(ppid)
+            if _is_backend_process(ppid, command, cwd):
+                collected.append(ppid)
+            current = ppid
+
+        return collected
+
     try:
         result = subprocess.run(
             ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
@@ -82,30 +145,37 @@ def stop_stale_backend(port: int, backend_dir: Path) -> None:
         return
 
     candidates: list[str] = []
+    listener_details: list[str] = []
 
     for pid in pids:
-        ps_result = subprocess.run(
-            ["ps", "-p", pid, "-o", "pid=,command="],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        command = ps_result.stdout.strip()
+        command = _read_pid_command(pid)
+        cwd = _read_pid_cwd(pid)
         if not command:
             continue
 
-        if "run.py" in command and "python" in command.lower():
+        listener_details.append(f"pid={pid} cwd={cwd or '-'} cmd={command}")
+
+        if _is_backend_process(pid, command, cwd):
             candidates.append(pid)
+            candidates.extend(_collect_backend_ancestors(pid))
 
     if not candidates:
+        for detail in listener_details:
+            log_line(f"port {port} listener: {detail}")
         log_line(
             f"backend port {port} is already in use by a non-backend process; "
             "stop it manually before running dev",
         )
         raise SystemExit(1)
 
-    log_line(f"stopping stale backend listener on port {port}: {' '.join(candidates)}")
-    subprocess.run(["kill", "-TERM", *candidates], check=False)
+    # Keep pid order stable while removing duplicates.
+    deduped_candidates = list(dict.fromkeys(candidates))
+
+    log_line(
+        "stopping stale backend listener on "
+        f"port {port}: {' '.join(deduped_candidates)}"
+    )
+    subprocess.run(["kill", "-TERM", *deduped_candidates], check=False)
 
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
@@ -120,7 +190,7 @@ def stop_stale_backend(port: int, backend_dir: Path) -> None:
             return
         time.sleep(0.2)
 
-    subprocess.run(["kill", "-KILL", *candidates], check=False)
+    subprocess.run(["kill", "-KILL", *deduped_candidates], check=False)
 
 
 def main() -> None:
