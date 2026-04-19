@@ -1,4 +1,6 @@
 import type {
+  CreateVideoFolderPayload,
+  CreateVideoFolderResponse,
   RenameFilePayload,
   SessionState,
   SheetRow,
@@ -58,6 +60,15 @@ export async function getSession(): Promise<SessionState> {
 export async function updateSession(payload: UpdateSessionPayload): Promise<SessionState> {
   return requestJson<SessionState>("/automation/session", {
     method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function createVideoFolder(
+  payload: CreateVideoFolderPayload,
+): Promise<CreateVideoFolderResponse> {
+  return requestJson<CreateVideoFolderResponse>("/storage/createVideoFolder", {
+    method: "POST",
     body: JSON.stringify(payload),
   });
 }

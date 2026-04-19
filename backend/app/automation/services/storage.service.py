@@ -36,6 +36,34 @@ class StorageService:
     def storage_path(self) -> Path:
         return self._storage_path
 
+    def _repo_video_folder(self) -> Path:
+        backend_root = Path(__file__).resolve().parents[3]
+        return backend_root / "storage" / "video"
+
+    def _desktop_video_folder(self) -> Path:
+        return Path.home() / "Desktop" / "video"
+
+    async def is_video_folder_created(self) -> bool:
+        repo_video = self._repo_video_folder()
+        desktop_video = self._desktop_video_folder()
+
+        repo_exists, desktop_exists = await asyncio.gather(
+            asyncio.to_thread(repo_video.exists),
+            asyncio.to_thread(desktop_video.exists),
+        )
+        return bool(repo_exists or desktop_exists)
+
+    async def create_video_folder(self, *, is_desktop: bool) -> Path:
+        target = self._desktop_video_folder() if is_desktop else self._repo_video_folder()
+        await asyncio.to_thread(target.mkdir, parents=True, exist_ok=True)
+        self._log(
+            "info",
+            "video_folder_created",
+            path=str(target),
+            isDesktop=is_desktop,
+        )
+        return target
+
     def is_ignored_name(self, file_name: str) -> bool:
         name = file_name.strip()
         lower = name.lower()

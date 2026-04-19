@@ -52,7 +52,6 @@ export function useSidebarController(): SidebarControllerResult {
         async () => {
           await control.connect(targetDeviceId);
           setSelectedDevice(targetDeviceId);
-          await refreshDevices();
           addLog(`Kết nối thành công với ${targetDeviceId}`);
         },
         {
@@ -77,7 +76,6 @@ export function useSidebarController(): SidebarControllerResult {
           if (selectedDevice === targetDeviceId) {
             setSelectedDevice("");
           }
-          await refreshDevices();
           addLog(`Đã dừng kết nối ${targetDeviceId}`);
         },
         {
@@ -143,14 +141,15 @@ export function useSidebarController(): SidebarControllerResult {
       await toastAction(
         async () => {
           const connectedDevices = devices.filter((device) => device.connected);
-          await control.disconnectAll(connectedDevices.map((device) => device.id));
+          await control.disconnectAll(
+            connectedDevices.map((device) => device.id),
+          );
           if (
             selectedDevice &&
             connectedDevices.some((device) => device.id === selectedDevice)
           ) {
             setSelectedDevice("");
           }
-          await refreshDevices();
           addLog("Đã dừng kết nối tất cả thiết bị");
         },
         {
@@ -187,7 +186,8 @@ export function useSidebarController(): SidebarControllerResult {
     return "bg-rose-500";
   };
 
-  const canConnect = (device: LegacyDevice): boolean => device.adb_status === "device";
+  const canConnect = (device: LegacyDevice): boolean =>
+    device.adb_status === "device";
 
   return {
     devices,

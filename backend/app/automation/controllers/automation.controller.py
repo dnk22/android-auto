@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
-from app.automation.models.sheet_model import SessionState, SheetRow
+from app.automation.models.sheet_model import SheetRow
 from app.automation.schemas.automation_schema import (
     BulkUpdateSheetRequest,
+    CreateVideoFolderRequest,
+    CreateVideoFolderResponse,
     RenameFileRequest,
     RenameFileResponse,
+    SessionResponse,
     SetReadyResponse,
     StorageListResponse,
     UpdateSessionRequest,
@@ -69,21 +72,42 @@ def build_router(sheet_service, storage_service, queue_service) -> APIRouter:
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    @router.get("/automation/session", response_model=SessionState)
-    async def get_session() -> SessionState:
+    @router.get("/automation/session", response_model=SessionResponse)
+    async def get_session() -> SessionResponse:
         session = await sheet_service.get_session()
-        return session
+        is_video_folder_created = await storage_service.is_video_folder_created()
+        return SessionResponse(
+            status=session.status,
+            autoReady=session.autoReady,
+            isVideoFolderCreated=is_video_folder_created,
+        )
 
-    @router.patch("/automation/session", response_model=SessionState)
-    async def patch_session(payload: UpdateSessionRequest) -> SessionState:
+    @router.patch("/automation/session", response_model=SessionResponse)
+    async def patch_session(payload: UpdateSessionRequest) -> SessionResponse:
         try:
             session = await sheet_service.update_session(
                 status=payload.status,
                 auto_ready=payload.autoReady,
             )
-            return session
+            is_video_folder_created = await storage_service.is_video_folder_created()
+            return SessionResponse(
+                status=session.status,
+                autoReady=session.autoReady,
+                isVideoFolderCreated=is_video_folder_created,
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @router.post("/storage/createVideoFolder", response_model=CreateVideoFolderResponse)
+    async def create_video_folder(payload: CreateVideoFolderRequest) -> CreateVideoFolderResponse:
+        target = await storage_service.create_video_folder(is_desktop=payload.isDesktop)
+        is_video_folder_created = await storage_service.is_video_folder_created()
+        return CreateVideoFolderResponse(
+            ok=True,
+            isDesktop=payload.isDesktop,
+            path=str(target),
+            isVideoFolderCreated=is_video_folder_created,
+        )
 
     @router.get("/automation/storage", response_model=StorageListResponse)
     async def list_storage() -> StorageListResponse:

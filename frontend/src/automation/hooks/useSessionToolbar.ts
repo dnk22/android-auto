@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getSession } from "../api/automation.api";
 import {
   SESSION_QUERY_KEY,
+  useCreateVideoFolderMutation,
   useSessionActionMutation,
 } from "../store/automation.mutations.store";
 import { SESSION_TOOLBAR_ACTION } from "../utils/sessionToolbar.constants";
@@ -15,9 +16,12 @@ export function useSessionToolbar(): {
   autoReadyText: string;
   isWatching: boolean;
   isAutoReady: boolean;
+  isVideoFolderCreated: boolean;
   handleWatching: () => void;
   handleIdle: () => void;
   handleAutoReady: () => void;
+  createVideoFolderAt: (isDesktop: boolean) => Promise<void>;
+  isCreatingVideoFolder: boolean;
   isLoading: boolean;
 } {
   const sessionQuery = useQuery({
@@ -27,6 +31,7 @@ export function useSessionToolbar(): {
 
   const session = sessionQuery.data;
   const sessionActionMutation = useSessionActionMutation();
+  const createVideoFolderMutation = useCreateVideoFolderMutation();
 
   const runSessionAction = useCallback(
     (action: SessionToolbarAction): void => {
@@ -43,7 +48,7 @@ export function useSessionToolbar(): {
     [session?.autoReady, sessionActionMutation],
   );
 
-  const handleWatching = useCallback(() => {
+  const handleWatching = useCallback((): void => {
     runSessionAction(SESSION_TOOLBAR_ACTION.WATCHING);
   }, [runSessionAction]);
 
@@ -55,6 +60,13 @@ export function useSessionToolbar(): {
     runSessionAction(SESSION_TOOLBAR_ACTION.TOGGLE_AUTO_READY);
   }, [runSessionAction]);
 
+  const createVideoFolderAt = useCallback(
+    async (isDesktop: boolean): Promise<void> => {
+      await createVideoFolderMutation.mutateAsync({ isDesktop });
+    },
+    [createVideoFolderMutation],
+  );
+
   return useMemo(
     () => ({
       sessionStatusText:
@@ -64,17 +76,24 @@ export function useSessionToolbar(): {
       autoReadyText: session?.autoReady ? "Mở" : "Tắt",
       isWatching: session?.status === SESSION_TOOLBAR_ACTION.WATCHING,
       isAutoReady: Boolean(session?.autoReady),
+      isVideoFolderCreated: Boolean(session?.isVideoFolderCreated),
       handleWatching,
       handleIdle,
       handleAutoReady,
-      isLoading: sessionQuery.isLoading,
+      createVideoFolderAt,
+      isCreatingVideoFolder: createVideoFolderMutation.isPending,
+      isLoading: sessionQuery.isLoading || sessionActionMutation.isPending,
     }),
     [
+      createVideoFolderAt,
+      createVideoFolderMutation.isPending,
       handleAutoReady,
       handleIdle,
       handleWatching,
+      sessionActionMutation.isPending,
       sessionQuery.isLoading,
       session?.autoReady,
+      session?.isVideoFolderCreated,
       session?.status,
     ],
   );

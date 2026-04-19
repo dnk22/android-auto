@@ -33,6 +33,7 @@ export type SheetResponse = SheetRow[];
 export type SessionState = {
   status: SessionStatus;
   autoReady: boolean;
+  isVideoFolderCreated: boolean;
 };
 
 export type UpdateRowPayload = {
@@ -49,6 +50,17 @@ export type UpdateRowPayload = {
 export type UpdateSessionPayload = {
   status?: SessionStatus;
   autoReady?: boolean;
+};
+
+export type CreateVideoFolderPayload = {
+  isDesktop: boolean;
+};
+
+export type CreateVideoFolderResponse = {
+  ok: boolean;
+  isDesktop: boolean;
+  path: string;
+  isVideoFolderCreated: boolean;
 };
 
 export type RenameFilePayload = {

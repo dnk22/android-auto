@@ -38,6 +38,23 @@ class UpdateSessionRequest(BaseModel):
     autoReady: bool | None = None
 
 
+class SessionResponse(BaseModel):
+    status: Literal["watching", "idle"]
+    autoReady: bool
+    isVideoFolderCreated: bool
+
+
+class CreateVideoFolderRequest(BaseModel):
+    isDesktop: bool = False
+
+
+class CreateVideoFolderResponse(BaseModel):
+    ok: bool
+    isDesktop: bool
+    path: str
+    isVideoFolderCreated: bool
+
+
 class RenameFileRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
