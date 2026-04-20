@@ -48,9 +48,9 @@ class SheetService:
     async def startup(self) -> None:
         await self._ensure_db_ready()
         async with self._lock:
-            repaired = await asyncio.to_thread(self._repair_orphan_jobs_sync)
+            repaired = await asyncio.to_thread(self._repair_orphan_sheets_sync)
         if repaired > 0:
-            self._log("warning", "orphan_jobs_repaired", repairedCount=repaired)
+            self._log("warning", "orphan_sheets_repaired", repairedCount=repaired)
 
     async def _ensure_db_ready(self) -> None:
         if self._db_ready:
@@ -189,9 +189,9 @@ class SheetService:
         async with self._lock:
             row = await asyncio.to_thread(self._get_row_by_video_name_sync, video_name)
         if row is None:
-            raise ValueError("video not found in jobs")
+            raise ValueError("video not found in sheets")
         if row.status != "idle":
-            raise ValueError("only idle jobs can be modified")
+            raise ValueError("only idle sheets can be modified")
 
     async def rename_video_for_external_event(self, old_name: str, new_name: str) -> SheetRow | None:
         await self._ensure_db_ready()
@@ -229,7 +229,7 @@ class SheetService:
                 """
                 SELECT v.id AS video_id, j.status AS status
                 FROM videos v
-                JOIN jobs j ON j.video_id = v.id
+                JOIN sheets j ON j.video_id = v.id
                 WHERE v.video_name = ?
                 """,
                 (new_name,),
@@ -245,7 +245,7 @@ class SheetService:
                 # as missing_file: mark old row missing and revive target row to idle.
                 connection.execute(
                     """
-                    UPDATE jobs
+                    UPDATE sheets
                     SET
                         status = 'missing_file',
                         updated_at = ?,
@@ -256,7 +256,7 @@ class SheetService:
                 )
                 connection.execute(
                     """
-                    UPDATE jobs
+                    UPDATE sheets
                     SET
                         status = 'idle',
                         updated_at = ?,
@@ -273,7 +273,7 @@ class SheetService:
                 (new_name, timestamp, source_video_id),
             )
             connection.execute(
-                "UPDATE jobs SET updated_at = ?, version = version + 1 WHERE video_id = ?",
+                "UPDATE sheets SET updated_at = ?, version = version + 1 WHERE video_id = ?",
                 (timestamp, source_video_id),
             )
             connection.commit()
@@ -448,7 +448,7 @@ class SheetService:
             )
             connection.execute(
                 """
-                CREATE TABLE IF NOT EXISTS jobs (
+                CREATE TABLE IF NOT EXISTS sheets (
                     id TEXT PRIMARY KEY,
                     video_id TEXT NOT NULL UNIQUE,
                     device_id TEXT,
@@ -468,7 +468,7 @@ class SheetService:
             )
             self._ensure_columns_sync(
                 connection,
-                "jobs",
+                "sheets",
                 {
                     "device_id": "TEXT",
                     "products": "TEXT",
@@ -483,9 +483,48 @@ class SheetService:
                     "updated_at": "INTEGER NOT NULL DEFAULT 0",
                 },
             )
+
+            legacy_jobs_exists = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'jobs'",
+            ).fetchone()
+            if legacy_jobs_exists is not None:
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO sheets (
+                        id,
+                        video_id,
+                        device_id,
+                        products,
+                        hashtag_inline,
+                        created_by_duplicate,
+                        status,
+                        meta,
+                        version,
+                        started_at,
+                        finished_at,
+                        created_at,
+                        updated_at
+                    )
+                    SELECT
+                        id,
+                        video_id,
+                        device_id,
+                        products,
+                        hashtag_inline,
+                        created_by_duplicate,
+                        status,
+                        meta,
+                        version,
+                        started_at,
+                        finished_at,
+                        created_at,
+                        updated_at
+                    FROM jobs
+                    """,
+                )
             connection.commit()
 
-    def _repair_orphan_jobs_sync(self) -> int:
+    def _repair_orphan_sheets_sync(self) -> int:
         timestamp = int(time.time())
         repaired = 0
         with self._connect() as connection:
@@ -493,7 +532,7 @@ class SheetService:
                 """
                 SELECT v.id AS video_id
                 FROM videos v
-                LEFT JOIN jobs j ON j.video_id = v.id
+                LEFT JOIN sheets j ON j.video_id = v.id
                 WHERE j.id IS NULL
                 """
             ).fetchall()
@@ -503,7 +542,7 @@ class SheetService:
                 job_id = uuid4().hex
                 connection.execute(
                     """
-                    INSERT INTO jobs (
+                    INSERT INTO sheets (
                         id,
                         video_id,
                         device_id,
@@ -569,7 +608,7 @@ class SheetService:
                     j.finished_at,
                     j.created_at,
                     j.updated_at
-                FROM jobs j
+                FROM sheets j
                 JOIN videos v ON v.id = j.video_id
                 ORDER BY j.created_at DESC
                 """
@@ -595,7 +634,7 @@ class SheetService:
                     j.finished_at,
                     j.created_at,
                     j.updated_at
-                FROM jobs j
+                FROM sheets j
                 JOIN videos v ON v.id = j.video_id
                 WHERE j.status = ?
                 ORDER BY j.created_at DESC
@@ -623,7 +662,7 @@ class SheetService:
                     j.finished_at,
                     j.created_at,
                     j.updated_at
-                FROM jobs j
+                FROM sheets j
                 JOIN videos v ON v.id = j.video_id
                 WHERE v.id = ?
                 """,
@@ -650,7 +689,7 @@ class SheetService:
                     j.finished_at,
                     j.created_at,
                     j.updated_at
-                FROM jobs j
+                FROM sheets j
                 JOIN videos v ON v.id = j.video_id
                 WHERE v.video_name = ?
                 """,
@@ -677,7 +716,7 @@ class SheetService:
             if existing:
                 video_id = str(existing["id"])
                 has_job = connection.execute(
-                    "SELECT id FROM jobs WHERE video_id = ?",
+                    "SELECT id FROM sheets WHERE video_id = ?",
                     (video_id,),
                 ).fetchone()
                 if has_job is None:
@@ -685,7 +724,7 @@ class SheetService:
                     job_id = uuid4().hex
                     connection.execute(
                         """
-                        INSERT INTO jobs (
+                        INSERT INTO sheets (
                             id,
                             video_id,
                             device_id,
@@ -713,7 +752,7 @@ class SheetService:
 
                 connection.execute(
                     """
-                    UPDATE jobs
+                    UPDATE sheets
                     SET
                         status = CASE WHEN status = 'missing_file' THEN 'idle' ELSE status END,
                         created_by_duplicate = ?,
@@ -744,7 +783,7 @@ class SheetService:
             )
             connection.execute(
                 """
-                INSERT INTO jobs (
+                INSERT INTO sheets (
                     id,
                     video_id,
                     device_id,
@@ -791,7 +830,7 @@ class SheetService:
                 (new_name, timestamp, video_id),
             )
             connection.execute(
-                "UPDATE jobs SET updated_at = ?, version = version + 1 WHERE video_id = ?",
+                "UPDATE sheets SET updated_at = ?, version = version + 1 WHERE video_id = ?",
                 (timestamp, video_id),
             )
             connection.commit()
@@ -827,7 +866,7 @@ class SheetService:
         with self._connect() as connection:
             connection.execute(
                 """
-                UPDATE jobs
+                UPDATE sheets
                 SET
                     device_id = ?,
                     products = ?,
@@ -871,7 +910,7 @@ class SheetService:
 
             connection.execute(
                 """
-                UPDATE jobs
+                UPDATE sheets
                 SET
                     status = ?,
                     started_at = COALESCE(?, started_at),
@@ -907,7 +946,7 @@ class SheetService:
         with self._connect() as connection:
             connection.execute(
                 """
-                UPDATE jobs
+                UPDATE sheets
                 SET meta = ?, updated_at = ?, version = version + 1
                 WHERE video_id = ?
                 """,
@@ -920,7 +959,7 @@ class SheetService:
         with self._connect() as connection:
             connection.execute(
                 """
-                UPDATE jobs
+                UPDATE sheets
                 SET
                     status = 'idle',
                     updated_at = ?,

@@ -37,7 +37,7 @@ export function SessionToolbar(): JSX.Element {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="mt-2 font-display text-2xl text-[var(--ink)]">
-            Session + Job Editor
+            Session + Sheet Editor
           </h1>
           <p className="mt-1 text-xs text-[var(--muted)]">
             Trạng thái: {sessionStatusText} | auto-ready: {autoReadyText}
