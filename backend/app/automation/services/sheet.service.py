@@ -96,8 +96,11 @@ class SheetService:
         *,
         status: str | None = None,
         auto_ready: bool | None = None,
+        hashtag_common: str | None = None,
+        hashtag_common_provided: bool = False,
     ) -> SessionState:
         session_changed = False
+        hashtag_common_changed = False
         next_status = status
         if next_status is not None and next_status not in {"watching", "idle"}:
             raise ValueError("invalid session status")
@@ -109,8 +112,20 @@ class SheetService:
             if auto_ready is not None and auto_ready != self._session.autoReady:
                 self._session.autoReady = auto_ready
                 session_changed = True
+            if hashtag_common_provided:
+                next_hashtag_common = self._normalize_optional_text(hashtag_common)
+                if next_hashtag_common != self._session.hashtagCommon:
+                    self._session.hashtagCommon = next_hashtag_common
+                    session_changed = True
+                    hashtag_common_changed = True
 
             session_snapshot = self._session.model_copy(deep=True)
+
+        if hashtag_common_changed:
+            await asyncio.to_thread(
+                self._set_all_rows_hashtag_common_sync,
+                session_snapshot.hashtagCommon,
+            )
 
         if not session_changed:
             return session_snapshot
@@ -454,6 +469,7 @@ class SheetService:
                     device_id TEXT,
                     products TEXT,
                     hashtag_inline TEXT,
+                    hashtag_common TEXT,
                     created_by_duplicate INTEGER DEFAULT 0,
                     status TEXT NOT NULL,
                     meta TEXT,
@@ -473,6 +489,7 @@ class SheetService:
                     "device_id": "TEXT",
                     "products": "TEXT",
                     "hashtag_inline": "TEXT",
+                    "hashtag_common": "TEXT",
                     "created_by_duplicate": "INTEGER DEFAULT 0",
                     "status": "TEXT NOT NULL DEFAULT 'idle'",
                     "meta": "TEXT",
@@ -496,6 +513,7 @@ class SheetService:
                         device_id,
                         products,
                         hashtag_inline,
+                        hashtag_common,
                         created_by_duplicate,
                         status,
                         meta,
@@ -511,6 +529,7 @@ class SheetService:
                         device_id,
                         products,
                         hashtag_inline,
+                        NULL,
                         created_by_duplicate,
                         status,
                         meta,
@@ -548,6 +567,7 @@ class SheetService:
                         device_id,
                         products,
                         hashtag_inline,
+                        hashtag_common,
                         created_by_duplicate,
                         status,
                         meta,
@@ -556,7 +576,7 @@ class SheetService:
                         finished_at,
                         created_at,
                         updated_at
-                    ) VALUES (?, ?, '', '', NULL, 0, 'idle', ?, 0, NULL, NULL, ?, ?)
+                    ) VALUES (?, ?, '', '', NULL, NULL, 0, 'idle', ?, 0, NULL, NULL, ?, ?)
                     """,
                     (
                         job_id,
@@ -600,6 +620,7 @@ class SheetService:
                     COALESCE(j.device_id, '') AS device_id,
                     COALESCE(j.products, '') AS products,
                     j.hashtag_inline,
+                    j.hashtag_common,
                     j.created_by_duplicate,
                     j.status,
                     j.meta,
@@ -626,6 +647,7 @@ class SheetService:
                     COALESCE(j.device_id, '') AS device_id,
                     COALESCE(j.products, '') AS products,
                     j.hashtag_inline,
+                    j.hashtag_common,
                     j.created_by_duplicate,
                     j.status,
                     j.meta,
@@ -654,6 +676,7 @@ class SheetService:
                     COALESCE(j.device_id, '') AS device_id,
                     COALESCE(j.products, '') AS products,
                     j.hashtag_inline,
+                    j.hashtag_common,
                     j.created_by_duplicate,
                     j.status,
                     j.meta,
@@ -681,6 +704,7 @@ class SheetService:
                     COALESCE(j.device_id, '') AS device_id,
                     COALESCE(j.products, '') AS products,
                     j.hashtag_inline,
+                    j.hashtag_common,
                     j.created_by_duplicate,
                     j.status,
                     j.meta,
@@ -707,6 +731,7 @@ class SheetService:
 
     def _upsert_from_storage_sync(self, video_name: str, created_by_duplicate: bool) -> SheetRow:
         timestamp = int(time.time())
+        hashtag_common = self._normalize_optional_text(self._session.hashtagCommon)
         with self._connect() as connection:
             existing = connection.execute(
                 "SELECT id FROM videos WHERE video_name = ?",
@@ -730,6 +755,7 @@ class SheetService:
                             device_id,
                             products,
                             hashtag_inline,
+                            hashtag_common,
                             created_by_duplicate,
                             status,
                             meta,
@@ -738,11 +764,12 @@ class SheetService:
                             finished_at,
                             created_at,
                             updated_at
-                        ) VALUES (?, ?, '', '', NULL, ?, 'idle', ?, 0, NULL, NULL, ?, ?)
+                        ) VALUES (?, ?, '', '', NULL, ?, ?, 'idle', ?, 0, NULL, NULL, ?, ?)
                         """,
                         (
                             job_id,
                             video_id,
+                            hashtag_common,
                             1 if created_by_duplicate else 0,
                             json.dumps({"jobId": job_id}, ensure_ascii=True),
                             timestamp,
@@ -789,6 +816,7 @@ class SheetService:
                     device_id,
                     products,
                     hashtag_inline,
+                    hashtag_common,
                     created_by_duplicate,
                     status,
                     meta,
@@ -797,11 +825,12 @@ class SheetService:
                     finished_at,
                     created_at,
                     updated_at
-                ) VALUES (?, ?, '', '', NULL, ?, 'idle', ?, 0, NULL, NULL, ?, ?)
+                ) VALUES (?, ?, '', '', NULL, ?, ?, 'idle', ?, 0, NULL, NULL, ?, ?)
                 """,
                 (
                     job_id,
                     video_id,
+                    hashtag_common,
                     1 if created_by_duplicate else 0,
                     json.dumps({"jobId": job_id}, ensure_ascii=True),
                     timestamp,
@@ -856,6 +885,7 @@ class SheetService:
             "device_id": row.deviceId if payload.device_id is None else payload.device_id,
             "products": row.products if payload.products is None else payload.products,
             "hashtag_inline": row.hashtagInline if payload.hashtag_inline is None else payload.hashtag_inline,
+            "hashtag_common": row.hashtagCommon,
             "status": row.status if payload.status is None else payload.status,
             "meta": meta_value,
             "started_at": row.startedAt if payload.started_at is None else payload.started_at,
@@ -871,6 +901,7 @@ class SheetService:
                     device_id = ?,
                     products = ?,
                     hashtag_inline = ?,
+                    hashtag_common = ?,
                     status = ?,
                     meta = ?,
                     started_at = ?,
@@ -883,6 +914,7 @@ class SheetService:
                     updates["device_id"],
                     updates["products"],
                     updates["hashtag_inline"],
+                    updates["hashtag_common"],
                     updates["status"],
                     updates["meta"],
                     updates["started_at"],
@@ -954,6 +986,27 @@ class SheetService:
             )
             connection.commit()
 
+    def _set_all_rows_hashtag_common_sync(self, hashtag_common: str | None) -> None:
+        timestamp = int(time.time())
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE sheets
+                SET
+                    hashtag_common = ?,
+                    updated_at = ?,
+                    version = version + 1
+                """,
+                (hashtag_common, timestamp),
+            )
+            connection.commit()
+
+    def _normalize_optional_text(self, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped if stripped else None
+
     def _reset_ready_queued_sync(self) -> None:
         timestamp = int(time.time())
         with self._connect() as connection:
@@ -978,6 +1031,7 @@ class SheetService:
             deviceId=str(row["device_id"] or ""),
             products=str(row["products"] or ""),
             hashtagInline=row["hashtag_inline"],
+            hashtagCommon=row["hashtag_common"],
             createdByDuplicate=bool(row["created_by_duplicate"]),
             status=str(row["status"]),
             meta=row["meta"],

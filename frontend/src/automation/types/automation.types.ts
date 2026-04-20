@@ -18,6 +18,7 @@ export type SheetRow = {
   deviceId: string;
   products: string;
   hashtagInline?: string;
+  hashtagCommon?: string | null;
   createdByDuplicate: boolean;
   status: SheetStatus;
   meta?: string | null;
@@ -33,6 +34,7 @@ export type SheetResponse = SheetRow[];
 export type SessionState = {
   status: SessionStatus;
   autoReady: boolean;
+  hashtagCommon?: string | null;
   isVideoFolderCreated: boolean;
   videoFolderPath?: string | null;
 };
@@ -51,6 +53,7 @@ export type UpdateRowPayload = {
 export type UpdateSessionPayload = {
   status?: SessionStatus;
   autoReady?: boolean;
+  hashtagCommon?: string | null;
 };
 
 export type CreateVideoFolderPayload = {

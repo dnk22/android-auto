@@ -11,6 +11,8 @@ def parse_products(raw_products: str) -> list[str]:
 def build_hashtag(row: SheetRow) -> str | None:
     if row.hashtagInline and row.hashtagInline.strip():
         return row.hashtagInline.strip()
+    if row.hashtagCommon and row.hashtagCommon.strip():
+        return row.hashtagCommon.strip()
     return None
 
 
@@ -25,6 +27,6 @@ def validate_row(row: SheetRow, file_exists: bool) -> tuple[bool, str | None]:
         return False, "products is required"
 
     if build_hashtag(row) is None:
-        return False, "hashtagInline is required"
+        return False, "hashtag is required"
 
     return True, None

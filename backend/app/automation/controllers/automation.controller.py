@@ -107,6 +107,7 @@ def build_router(sheet_service, storage_service, queue_service, watcher_service=
         return SessionResponse(
             status=session.status,
             autoReady=session.autoReady,
+            hashtagCommon=session.hashtagCommon,
             isVideoFolderCreated=is_video_folder_created,
             videoFolderPath=video_folder_path,
         )
@@ -114,9 +115,12 @@ def build_router(sheet_service, storage_service, queue_service, watcher_service=
     @router.patch("/automation/session", response_model=SessionResponse)
     async def patch_session(payload: UpdateSessionRequest) -> SessionResponse:
         try:
+            has_hashtag_common_update = "hashtagCommon" in payload.model_fields_set
             session = await sheet_service.update_session(
                 status=payload.status,
                 auto_ready=payload.autoReady,
+                hashtag_common=payload.hashtagCommon,
+                hashtag_common_provided=has_hashtag_common_update,
             )
             await _sync_storage_watcher(session.status)
             is_video_folder_created = await storage_service.is_video_folder_created()
@@ -124,6 +128,7 @@ def build_router(sheet_service, storage_service, queue_service, watcher_service=
             return SessionResponse(
                 status=session.status,
                 autoReady=session.autoReady,
+                hashtagCommon=session.hashtagCommon,
                 isVideoFolderCreated=is_video_folder_created,
                 videoFolderPath=video_folder_path,
             )

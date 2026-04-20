@@ -36,11 +36,13 @@ class SetReadyResponse(BaseModel):
 class UpdateSessionRequest(BaseModel):
     status: Literal["watching", "idle"] | None = None
     autoReady: bool | None = None
+    hashtagCommon: str | None = None
 
 
 class SessionResponse(BaseModel):
     status: Literal["watching", "idle"]
     autoReady: bool
+    hashtagCommon: str | None = None
     isVideoFolderCreated: bool
     videoFolderPath: str | None = None
 

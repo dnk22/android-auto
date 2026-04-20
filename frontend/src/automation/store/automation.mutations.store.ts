@@ -30,6 +30,7 @@ export function useSessionActionMutation() {
     mutationFn: updateSession,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: SHEET_QUERY_KEY });
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Session action failed");

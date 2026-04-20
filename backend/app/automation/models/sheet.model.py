@@ -24,6 +24,7 @@ class SheetRow(BaseModel):
     deviceId: str
     products: str
     hashtagInline: str | None = None
+    hashtagCommon: str | None = None
     createdByDuplicate: bool = False
     status: SheetStatus
     meta: str | None = None
@@ -37,6 +38,7 @@ class SheetRow(BaseModel):
 class SessionState(BaseModel):
     status: Literal["watching", "idle"] = "idle"
     autoReady: bool = False
+    hashtagCommon: str | None = None
 
 
 class SheetState(BaseModel):
