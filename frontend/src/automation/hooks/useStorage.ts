@@ -200,18 +200,6 @@ export function useStorage() {
     },
   });
 
-  const renameMany = async (items: RenameFilePayload[]): Promise<void> => {
-    for (const item of items) {
-      await renameMutation.mutateAsync(item);
-    }
-  };
-
-  const deleteMany = async (videoNames: string[]): Promise<void> => {
-    for (const videoName of videoNames) {
-      await deleteMutation.mutateAsync(videoName);
-    }
-  };
-
   return useMemo(
     () => ({
       rows: query.data?.rows ?? [],
@@ -219,9 +207,7 @@ export function useStorage() {
       videoFolderPath: query.data?.videoFolderPath,
       loading: query.isLoading,
       renameFile: renameMutation.mutateAsync,
-      renameMany,
       deleteFile: deleteMutation.mutateAsync,
-      deleteMany,
       isRenaming: renameMutation.isPending,
       isDeleting: deleteMutation.isPending,
     }),
@@ -232,8 +218,6 @@ export function useStorage() {
       query.isLoading,
       renameMutation.mutateAsync,
       deleteMutation.mutateAsync,
-      deleteMany,
-      renameMany,
       renameMutation.isPending,
       deleteMutation.isPending,
     ],
