@@ -1,3 +1,5 @@
+import DebouncedButton from "../../components/common/DebouncedButton";
+
 type DuplicateModalProps = {
   isOpen: boolean;
   originalName: string;
@@ -40,20 +42,20 @@ export function DuplicateModal({
         </label>
 
         <div className="mt-4 flex items-center justify-end gap-2">
-          <button
+          <DebouncedButton
             type="button"
             onClick={onCancel}
             className="rounded-lg border border-[var(--card-border)] px-3 py-1 text-sm text-[var(--ink)]"
           >
             Cancel
-          </button>
-          <button
+          </DebouncedButton>
+          <DebouncedButton
             type="button"
             onClick={onConfirm}
             className="rounded-lg bg-[var(--accent-2)] px-3 py-1 text-sm font-semibold text-white"
           >
             OK
-          </button>
+          </DebouncedButton>
         </div>
       </div>
     </div>

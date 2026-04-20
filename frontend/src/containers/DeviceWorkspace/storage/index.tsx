@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
 import { DuplicateModal } from "../../../automation/components/DuplicateModal";
+import DebouncedButton from "../../../components/common/DebouncedButton";
 import {
   useStorage,
   useStorageEvents,
@@ -139,34 +140,34 @@ export default function StorageSectionContainer(): JSX.Element {
                     className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--panel)] px-2 py-1 text-sm font-semibold text-[var(--ink)] placeholder:text-[var(--muted)] outline-none focus:border-[var(--accent-2)] focus:ring-1 focus:ring-[var(--accent-2)]"
                   />
                 ) : (
-                  <button
+                  <DebouncedButton
                     type="button"
                     onDoubleClick={() => startEdit(row.videoId, row.videoName)}
                     className="w-full truncate text-left text-sm font-semibold text-[var(--ink)]"
                     title="Double click để đổi tên"
                   >
                     {row.videoName}
-                  </button>
+                  </DebouncedButton>
                 )}
                 <div className="mt-1 text-[11px] text-[var(--muted)]">status: {row.status}</div>
 
                 <div className="mt-2 flex gap-1">
-                  <button
+                  <DebouncedButton
                     type="button"
                     onClick={() => onRenameAction(row.videoId, row.videoName)}
                     disabled={pending}
                     className="flex-1 rounded-lg border border-[var(--card-border)] px-2 py-1 text-xs text-[var(--ink)] disabled:opacity-50"
                   >
                     {editingVideoId === row.videoId ? "Lưu" : "Đổi tên"}
-                  </button>
-                  <button
+                  </DebouncedButton>
+                  <DebouncedButton
                     type="button"
                     onClick={() => onDelete(row.videoName)}
                     disabled={pending}
                     className="flex-1 rounded-lg bg-red-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
                   >
                     Xóa
-                  </button>
+                  </DebouncedButton>
                 </div>
               </div>
             ))}

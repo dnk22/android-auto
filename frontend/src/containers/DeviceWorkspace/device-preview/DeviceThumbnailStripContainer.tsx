@@ -1,4 +1,5 @@
 import ThumbPollingImage from "../../../components/DevicePreview/ThumbPollingImage";
+import DebouncedButton from "../../../components/common/DebouncedButton";
 import { useDeviceThumbnailStripController } from "./hooks/useDeviceThumbnailStripController";
 
 export default function DeviceThumbnailStripContainer(): JSX.Element {
@@ -19,7 +20,7 @@ export default function DeviceThumbnailStripContainer(): JSX.Element {
           Thiết bị đã kết nối
         </p>
         <div className="flex items-center gap-2">
-          <button
+          <DebouncedButton
             type="button"
             onClick={toggleSyncAllDevices}
             className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] ${
@@ -29,15 +30,15 @@ export default function DeviceThumbnailStripContainer(): JSX.Element {
             }`}
           >
             {syncAllDevices ? "Đồng bộ: ON" : "Đồng bộ: OFF"}
-          </button>
-          <button
+          </DebouncedButton>
+          <DebouncedButton
             type="button"
             onClick={onTestU2}
             disabled={isTestingU2 || (!syncAllDevices && !selectedDevice)}
             className="rounded-full bg-[var(--panel-soft)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isTestingU2 ? "Test U2..." : "Test U2"}
-          </button>
+          </DebouncedButton>
         </div>
       </div>
       <div className="flex gap-3 overflow-x-auto p-1">
@@ -50,7 +51,7 @@ export default function DeviceThumbnailStripContainer(): JSX.Element {
             const isActive = device.id === selectedDevice;
 
             return (
-              <button
+              <DebouncedButton
                 key={device.id}
                 type="button"
                 onClick={() => onSelectDevice(device.id)}
@@ -71,7 +72,7 @@ export default function DeviceThumbnailStripContainer(): JSX.Element {
                     </div>
                   </div>
                 </div>
-              </button>
+              </DebouncedButton>
             );
           })
         )}

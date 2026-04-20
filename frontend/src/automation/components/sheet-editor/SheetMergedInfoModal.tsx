@@ -1,5 +1,6 @@
 import type { JSX } from "react";
 
+import DebouncedButton from "../../../components/common/DebouncedButton";
 import type { SheetMergedInfoPayload } from "../../hooks/useSheetMergedInfoModal";
 
 interface SheetMergedInfoModalProps {
@@ -32,13 +33,13 @@ export function SheetMergedInfoModal({
           <h3 className="text-base font-semibold text-[var(--ink)]">
             Thông tin chi tiết
           </h3>
-          <button
+          <DebouncedButton
             type="button"
             onClick={onClose}
             className="rounded-md border border-[var(--card-border)] px-2 py-1 text-xs text-[var(--muted)]"
           >
             Đóng
-          </button>
+          </DebouncedButton>
         </div>
 
         <div className="space-y-3 text-sm">

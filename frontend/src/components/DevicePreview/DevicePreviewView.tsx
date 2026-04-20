@@ -1,4 +1,5 @@
 import type { DevicePreviewViewProps } from "../../types/device-workspace/workspace.types";
+import DebouncedButton from "../common/DebouncedButton";
 
 export default function DevicePreviewView({
   activeTab,
@@ -17,7 +18,7 @@ export default function DevicePreviewView({
           {activeTab === previewTab ? "Device Preview" : "Storage"}
         </h3>
         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--card-border)] bg-[var(--panel-soft)] p-1">
-          <button
+          <DebouncedButton
             type="button"
             onClick={() => onTabChange(previewTab)}
             className={`rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${
@@ -27,8 +28,8 @@ export default function DevicePreviewView({
             }`}
           >
             Device preview
-          </button>
-          <button
+          </DebouncedButton>
+          <DebouncedButton
             type="button"
             onClick={() => onTabChange(storageTab)}
             className={`rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${
@@ -38,7 +39,7 @@ export default function DevicePreviewView({
             }`}
           >
             Storage
-          </button>
+          </DebouncedButton>
         </div>
       </div>
 

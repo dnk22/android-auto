@@ -2,6 +2,7 @@ import { useRef } from "react";
 
 import { Back, Camera, Home, HamburgerMenu } from "iconsax-reactjs";
 
+import DebouncedButton from "../../../components/common/DebouncedButton";
 import H264Decoder from "../../../components/H264Decoder";
 import { useMainStreamController } from "./hooks/useMainStreamController";
 
@@ -86,7 +87,7 @@ export default function MainStreamViewContainer(): JSX.Element {
           <div className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">
             <div className="flex h-[164px] w-[52px] flex-col items-center justify-center gap-2 rounded-2xl bg-black/60 p-2 backdrop-blur-sm">
               {toolbarButtons.map((button) => (
-                <button
+                <DebouncedButton
                   key={button.label}
                   type="button"
                   onClick={button.onClick}
@@ -96,7 +97,7 @@ export default function MainStreamViewContainer(): JSX.Element {
                   disabled={!activeStreamDevice}
                 >
                   <button.icon size="18" color="currentColor" variant="Linear" />
-                </button>
+                </DebouncedButton>
               ))}
             </div>
           </div>

@@ -46,3 +46,4 @@ logs/
 # Legacy local storage (no longer persisted)
 storage/devices/
 flow.md
+backend/storage/automation.db

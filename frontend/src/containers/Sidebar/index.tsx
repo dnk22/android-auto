@@ -1,4 +1,5 @@
 import { useSidebarController } from "./hooks/useSidebarController";
+import DebouncedButton from "../../components/common/DebouncedButton";
 
 export default function SidebarContainer(): JSX.Element {
   const {
@@ -22,13 +23,13 @@ export default function SidebarContainer(): JSX.Element {
     <aside className="card fade-in h-full w-full p-6">
       <div className="flex items-center justify-between gap-3">
         <h3 className="font-display text-2xl">Control Center</h3>
-        <button
+        <DebouncedButton
           type="button"
           onClick={toggleTheme}
           className="rounded-full border border-[var(--card-border)] bg-[var(--panel-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)]"
         >
           {theme === "dark" ? "Light mode" : "Dark mode"}
-        </button>
+        </DebouncedButton>
       </div>
       <div className="mt-6">
         <div className="flex flex-col gap-3">
@@ -36,7 +37,7 @@ export default function SidebarContainer(): JSX.Element {
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
               Thiết bị đã kết nối
             </p>
-            <button
+            <DebouncedButton
               type="button"
               onClick={handleRefreshDevices}
               className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--panel-soft)] text-[var(--ink)] transition hover:opacity-90"
@@ -55,10 +56,10 @@ export default function SidebarContainer(): JSX.Element {
                 <path d="M21 12a9 9 0 1 1-3-6.7" />
                 <path d="M21 3v6h-6" />
               </svg>
-            </button>
+            </DebouncedButton>
           </div>
           <div className="flex w-full items-center gap-2">
-            <button
+            <DebouncedButton
               type="button"
               onClick={handleConnectAll}
               className="w-1/2 rounded-full bg-[var(--chip-success-bg)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--chip-success-fg)] disabled:cursor-not-allowed"
@@ -70,8 +71,8 @@ export default function SidebarContainer(): JSX.Element {
               }
             >
               {isConnectingAll ? "Đang kết nối..." : "Kết nối tất cả"}
-            </button>
-            <button
+            </DebouncedButton>
+            <DebouncedButton
               type="button"
               onClick={handleDisconnectAll}
               className="w-1/2 rounded-full bg-[var(--chip-danger-bg)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--chip-danger-fg)] disabled:cursor-not-allowed"
@@ -82,7 +83,7 @@ export default function SidebarContainer(): JSX.Element {
               }
             >
               {isDisconnectingAll ? "Đang dừng..." : "Dừng tất cả"}
-            </button>
+            </DebouncedButton>
           </div>
         </div>
         <ul className="mt-3 space-y-2 text-sm">
@@ -109,7 +110,7 @@ export default function SidebarContainer(): JSX.Element {
                     <span className="truncate">{device.id}</span>
                     <div className="flex items-center gap-2">
                       {isConnected ? (
-                        <button
+                        <DebouncedButton
                           type="button"
                           onClick={() => handleDisconnect(device.id)}
                           className="inline-block rounded-full bg-[var(--chip-danger-bg)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--chip-danger-fg)]"
@@ -120,9 +121,9 @@ export default function SidebarContainer(): JSX.Element {
                           }
                         >
                           Dừng
-                        </button>
+                        </DebouncedButton>
                       ) : canConnect(device) ? (
-                        <button
+                        <DebouncedButton
                           type="button"
                           onClick={() => handleConnect(device.id)}
                           className="inline-block rounded-full bg-[var(--chip-success-bg)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--chip-success-fg)]"
@@ -135,7 +136,7 @@ export default function SidebarContainer(): JSX.Element {
                           {connectingDeviceId === device.id
                             ? "Đang kết nối..."
                             : "Kết nối"}
-                        </button>
+                        </DebouncedButton>
                       ) : null}
                     </div>
                   </div>

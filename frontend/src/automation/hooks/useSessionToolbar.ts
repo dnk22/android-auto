@@ -9,7 +9,7 @@ import {
 } from "../store/automation.mutations.store";
 import { SESSION_TOOLBAR_ACTION } from "../utils/sessionToolbar.constants";
 import type { SessionToolbarAction } from "../../types/automation/editor.types";
-import type { SessionStatus } from "../types/automation.types";
+import type { SessionState, SessionStatus } from "../types/automation.types";
 
 const normalizeHashtagCommon = (value: string | null | undefined): string =>
   (value ?? "").trim();
@@ -38,18 +38,30 @@ export function useSessionToolbar(): {
   });
 
   const session = sessionQuery.data;
+  const [sessionLocal, setSessionLocal] = useState<SessionState | null>(null);
   const sessionActionMutation = useSessionActionMutation();
   const createVideoFolderMutation = useCreateVideoFolderMutation();
   const [hashtagCommonDraft, setHashtagCommonDraft] = useState("");
   const hashtagTimerRef = useRef<number | null>(null);
   const normalizedSessionHashtagRef = useRef("");
+  const resolvedSession = sessionLocal ?? session;
 
   useEffect(() => {
+    if (!session) {
+      return;
+    }
+    setSessionLocal(session);
+  }, [session]);
+
+  useEffect(() => {
+    if (!resolvedSession) {
+      return;
+    }
     normalizedSessionHashtagRef.current = normalizeHashtagCommon(
-      session?.hashtagCommon,
+      resolvedSession.hashtagCommon,
     );
-    setHashtagCommonDraft(session?.hashtagCommon ?? "");
-  }, [session?.hashtagCommon]);
+    setHashtagCommonDraft(resolvedSession.hashtagCommon ?? "");
+  }, [resolvedSession]);
 
   useEffect(() => {
     return () => {
@@ -59,19 +71,31 @@ export function useSessionToolbar(): {
     };
   }, []);
 
+  const applySessionResponse = useCallback((next: SessionState): void => {
+    setSessionLocal(next);
+    normalizedSessionHashtagRef.current = normalizeHashtagCommon(next.hashtagCommon);
+    setHashtagCommonDraft(next.hashtagCommon ?? "");
+  }, []);
+
   const runSessionAction = useCallback(
     (action: SessionToolbarAction): void => {
       if (action === SESSION_TOOLBAR_ACTION.TOGGLE_AUTO_READY) {
-        sessionActionMutation.mutate({
-          autoReady: !Boolean(session?.autoReady),
-        });
+        void sessionActionMutation
+          .mutateAsync({
+            autoReady: !Boolean(resolvedSession?.autoReady),
+          })
+          .then(applySessionResponse)
+          .catch(() => undefined);
         return;
       }
 
       const status = action as SessionStatus;
-      sessionActionMutation.mutate({ status });
+      void sessionActionMutation
+        .mutateAsync({ status })
+        .then(applySessionResponse)
+        .catch(() => undefined);
     },
-    [session?.autoReady, sessionActionMutation],
+    [applySessionResponse, resolvedSession?.autoReady, sessionActionMutation],
   );
 
   const handleWatching = useCallback((): void => {
@@ -88,18 +112,18 @@ export function useSessionToolbar(): {
 
   const handleHashtagCommonChange = useCallback(
     (value: string): void => {
-      if (session?.status === SESSION_TOOLBAR_ACTION.WATCHING) {
+      if (resolvedSession?.status === SESSION_TOOLBAR_ACTION.WATCHING) {
         return;
       }
 
       setHashtagCommonDraft(value);
     },
-    [session?.status],
+    [resolvedSession?.status],
   );
 
   const scheduleHashtagCommonSubmit = useCallback(
     (value: string): void => {
-      if (session?.status === SESSION_TOOLBAR_ACTION.WATCHING) {
+      if (resolvedSession?.status === SESSION_TOOLBAR_ACTION.WATCHING) {
         return;
       }
 
@@ -117,11 +141,14 @@ export function useSessionToolbar(): {
       }
 
       hashtagTimerRef.current = window.setTimeout(() => {
-        sessionActionMutation.mutate({ hashtagCommon: trimmedValue });
+        void sessionActionMutation
+          .mutateAsync({ hashtagCommon: trimmedValue })
+          .then(applySessionResponse)
+          .catch(() => undefined);
         hashtagTimerRef.current = null;
       }, 400);
     },
-    [session?.status, sessionActionMutation],
+    [applySessionResponse, resolvedSession?.status, sessionActionMutation],
   );
 
   const submitHashtagCommon = useCallback((): void => {
@@ -129,7 +156,7 @@ export function useSessionToolbar(): {
   }, [hashtagCommonDraft, scheduleHashtagCommonSubmit]);
 
   const clearHashtagCommon = useCallback((): void => {
-    if (session?.status === SESSION_TOOLBAR_ACTION.WATCHING) {
+    if (resolvedSession?.status === SESSION_TOOLBAR_ACTION.WATCHING) {
       return;
     }
     if (
@@ -144,8 +171,16 @@ export function useSessionToolbar(): {
       window.clearTimeout(hashtagTimerRef.current);
       hashtagTimerRef.current = null;
     }
-    sessionActionMutation.mutate({ hashtagCommon: "" });
-  }, [session?.status, sessionActionMutation]);
+    void sessionActionMutation
+      .mutateAsync({ hashtagCommon: "" })
+      .then(applySessionResponse)
+      .catch(() => undefined);
+  }, [
+    applySessionResponse,
+    hashtagCommonDraft,
+    resolvedSession?.status,
+    sessionActionMutation,
+  ]);
 
   const createVideoFolderAt = useCallback(
     async (isDesktop: boolean): Promise<void> => {
@@ -157,15 +192,15 @@ export function useSessionToolbar(): {
   return useMemo(
     () => ({
       sessionStatusText:
-        session?.status === SESSION_TOOLBAR_ACTION.IDLE
+        resolvedSession?.status === SESSION_TOOLBAR_ACTION.IDLE
           ? "Tạm dừng"
           : "Đang chạy",
-      autoReadyText: session?.autoReady ? "Mở" : "Tắt",
-      isWatching: session?.status === SESSION_TOOLBAR_ACTION.WATCHING,
-      isAutoReady: Boolean(session?.autoReady),
+      autoReadyText: resolvedSession?.autoReady ? "Mở" : "Tắt",
+      isWatching: resolvedSession?.status === SESSION_TOOLBAR_ACTION.WATCHING,
+      isAutoReady: Boolean(resolvedSession?.autoReady),
       hashtagCommonValue: hashtagCommonDraft,
-      isHashtagCommonDisabled: session?.status === SESSION_TOOLBAR_ACTION.WATCHING,
-      isVideoFolderCreated: Boolean(session?.isVideoFolderCreated),
+      isHashtagCommonDisabled: resolvedSession?.status === SESSION_TOOLBAR_ACTION.WATCHING,
+      isVideoFolderCreated: Boolean(resolvedSession?.isVideoFolderCreated),
       handleWatching,
       handleIdle,
       handleAutoReady,
@@ -188,9 +223,9 @@ export function useSessionToolbar(): {
       submitHashtagCommon,
       sessionActionMutation.isPending,
       sessionQuery.isLoading,
-      session?.autoReady,
-      session?.isVideoFolderCreated,
-      session?.status,
+      resolvedSession?.autoReady,
+      resolvedSession?.isVideoFolderCreated,
+      resolvedSession?.status,
     ],
   );
 }

@@ -24,14 +24,8 @@ export function useSaveSheetRowMutation() {
 }
 
 export function useSessionActionMutation() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: updateSession,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
-      await queryClient.invalidateQueries({ queryKey: SHEET_QUERY_KEY });
-    },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Session action failed");
     },

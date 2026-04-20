@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { ArrowCircleRight, Autobrightness, Pause } from "iconsax-reactjs";
 import { useSessionToolbar } from "../../hooks/useSessionToolbar";
+import DebouncedButton from "../../../components/common/DebouncedButton";
 import { selectHasU2Device, useStore } from "../../../store/useStore";
 
 export function SessionToolbar(): JSX.Element {
@@ -61,19 +62,19 @@ export function SessionToolbar(): JSX.Element {
             />
           </div>
 
-          <button
+          <DebouncedButton
             type="button"
             onClick={clearHashtagCommon}
             disabled={isHashtagCommonDisabled}
             className="h-14 rounded-md border border-[var(--card-border)] px-2 text-xs font-semibold text-[var(--ink)] transition-colors hover:bg-[var(--card-border)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Xóa
-          </button>
+          </DebouncedButton>
         </div>
 
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            <DebouncedButton
               type="button"
               onClick={isWatching ? handleIdle : handleStart}
               disabled={!hasU2Device}
@@ -99,9 +100,9 @@ export function SessionToolbar(): JSX.Element {
                   Bắt đầu
                 </>
               )}
-            </button>
+            </DebouncedButton>
             <div className="mx-1 h-6 w-px bg-[var(--card-border)]" />
-            <button
+            <DebouncedButton
               type="button"
               onClick={handleAutoReady}
               disabled={!hasU2Device}
@@ -115,7 +116,7 @@ export function SessionToolbar(): JSX.Element {
             >
               <Autobrightness size="20" color="white" />
               Auto ready
-            </button>
+            </DebouncedButton>
           </div>
           <p className="mt-1 text-xs text-[var(--muted)]">
             Trạng thái:{" "}
@@ -138,7 +139,7 @@ export function SessionToolbar(): JSX.Element {
             </p>
 
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <button
+              <DebouncedButton
                 type="button"
                 onClick={() => {
                   void handleCreateVideoFolder(false);
@@ -147,8 +148,8 @@ export function SessionToolbar(): JSX.Element {
                 className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm font-semibold text-[var(--ink)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Hiện tại
-              </button>
-              <button
+              </DebouncedButton>
+              <DebouncedButton
                 type="button"
                 onClick={() => {
                   void handleCreateVideoFolder(true);
@@ -157,7 +158,7 @@ export function SessionToolbar(): JSX.Element {
                 className="rounded-lg bg-[var(--accent-2)] px-3 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Desktop
-              </button>
+              </DebouncedButton>
             </div>
           </div>
         </div>

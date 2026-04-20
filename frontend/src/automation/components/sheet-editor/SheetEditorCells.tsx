@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { useController } from "react-hook-form";
 
+import DebouncedButton from "../../../components/common/DebouncedButton";
 import type { SheetEditorTableProps } from "../../../types/automation/editor.types";
 import type { SheetStatus } from "../../types/automation.types";
 import type { SheetMergedInfoPayload } from "../../hooks/useSheetMergedInfoModal";
@@ -164,7 +165,7 @@ export function SheetDeviceSelectCell({
 
   return (
     <div className="relative inline-block max-w-[200px]" ref={rootRef}>
-      <button
+      <DebouncedButton
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className="min-h-10 w-fit max-w-[200px] rounded-md border border-[var(--card-border)] bg-[var(--panel-soft)] px-2 py-2 text-left"
@@ -207,7 +208,7 @@ export function SheetDeviceSelectCell({
             </span>
           ) : null}
         </div>
-      </button>
+      </DebouncedButton>
 
       {open ? (
         <div className="absolute left-0 z-30 mt-1 min-w-full rounded-md border border-[var(--card-border)] bg-[var(--panel-soft)] shadow-lg">
@@ -217,7 +218,7 @@ export function SheetDeviceSelectCell({
               const label = value === "all" ? "Tất cả" : value;
 
               return (
-                <button
+                <DebouncedButton
                   key={value}
                   type="button"
                   onClick={() => toggleValue(value)}
@@ -230,7 +231,7 @@ export function SheetDeviceSelectCell({
                     className="h-4 w-4 rounded border-[var(--card-border)]"
                   />
                   <span className="truncate text-[var(--ink)]">{label}</span>
-                </button>
+                </DebouncedButton>
               );
             })}
           </div>
@@ -259,14 +260,14 @@ interface SheetMergedInfoTriggerCellProps {
 
 export function SheetMergedInfoTriggerCell({ payload, onOpen }: SheetMergedInfoTriggerCellProps): JSX.Element {
   return (
-    <button
+    <DebouncedButton
       type="button"
       onClick={() => onOpen(payload)}
       className="w-full rounded-md border border-[var(--card-border)] bg-[var(--panel-soft)] px-3 py-2 text-left"
       title="View merged details"
     >
       Chi tiết
-    </button>
+    </DebouncedButton>
   );
 }
 
@@ -277,12 +278,12 @@ interface SheetSaveButtonCellProps {
 
 export function SheetSaveButtonCell({ rowIndex, onSaveRow }: SheetSaveButtonCellProps): JSX.Element {
   return (
-    <button
+    <DebouncedButton
       type="button"
       className="h-10 w-full rounded-md bg-[var(--accent-2)] px-4 py-2 text-white"
       onClick={() => onSaveRow(rowIndex)}
     >
       Save
-    </button>
+    </DebouncedButton>
   );
 }
