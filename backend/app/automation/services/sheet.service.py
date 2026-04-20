@@ -47,6 +47,10 @@ class SheetService:
 
     async def startup(self) -> None:
         await self._ensure_db_ready()
+        async with self._lock:
+            repaired = await asyncio.to_thread(self._repair_orphan_jobs_sync)
+        if repaired > 0:
+            self._log("warning", "orphan_jobs_repaired", repairedCount=repaired)
 
     async def _ensure_db_ready(self) -> None:
         if self._db_ready:
@@ -130,6 +134,11 @@ class SheetService:
         row = await self.get_row(video_id)
         return row.videoName if row else None
 
+    async def get_row_by_video_name(self, video_name: str) -> SheetRow | None:
+        await self._ensure_db_ready()
+        async with self._lock:
+            return await asyncio.to_thread(self._get_row_by_video_name_sync, video_name)
+
     async def has_video_name(self, video_name: str) -> bool:
         await self._ensure_db_ready()
         async with self._lock:
@@ -164,7 +173,7 @@ class SheetService:
     async def rename_video(self, old_name: str, new_name: str) -> SheetRow | None:
         await self._ensure_db_ready()
         async with self._lock:
-            return await asyncio.to_thread(self._rename_video_sync, old_name, new_name)
+            return await asyncio.to_thread(self._rename_video_with_missing_revival_sync, old_name, new_name)
 
     async def assert_can_delete(self, video_name: str) -> None:
         await self._ensure_db_ready()
@@ -174,6 +183,102 @@ class SheetService:
             return
         if row.status == "ready":
             raise ValueError("cannot delete file when row status is ready")
+
+    async def assert_video_idle(self, video_name: str) -> None:
+        await self._ensure_db_ready()
+        async with self._lock:
+            row = await asyncio.to_thread(self._get_row_by_video_name_sync, video_name)
+        if row is None:
+            raise ValueError("video not found in jobs")
+        if row.status != "idle":
+            raise ValueError("only idle jobs can be modified")
+
+    async def rename_video_for_external_event(self, old_name: str, new_name: str) -> SheetRow | None:
+        await self._ensure_db_ready()
+        async with self._lock:
+            existing = await asyncio.to_thread(self._get_row_by_video_name_sync, old_name)
+            if existing is None:
+                return None
+
+            renamed = await asyncio.to_thread(
+                self._rename_video_with_missing_revival_sync,
+                old_name,
+                new_name,
+            )
+            if renamed is None:
+                return None
+
+            if existing.status != "idle":
+                renamed = await asyncio.to_thread(self._update_status_sync, renamed.videoId, "stopped")
+
+        return renamed
+
+    def _rename_video_with_missing_revival_sync(self, old_name: str, new_name: str) -> SheetRow | None:
+        timestamp = int(time.time())
+        with self._connect() as connection:
+            source = connection.execute(
+                "SELECT id FROM videos WHERE video_name = ?",
+                (old_name,),
+            ).fetchone()
+            if source is None:
+                return None
+
+            source_video_id = str(source["id"])
+
+            target = connection.execute(
+                """
+                SELECT v.id AS video_id, j.status AS status
+                FROM videos v
+                JOIN jobs j ON j.video_id = v.id
+                WHERE v.video_name = ?
+                """,
+                (new_name,),
+            ).fetchone()
+
+            if target is not None:
+                target_video_id = str(target["video_id"])
+                target_status = str(target["status"])
+                if target_status != "missing_file":
+                    raise ValueError("target video name already exists")
+
+                # File is effectively moved from old_name -> new_name where new_name row existed
+                # as missing_file: mark old row missing and revive target row to idle.
+                connection.execute(
+                    """
+                    UPDATE jobs
+                    SET
+                        status = 'missing_file',
+                        updated_at = ?,
+                        version = version + 1
+                    WHERE video_id = ?
+                    """,
+                    (timestamp, source_video_id),
+                )
+                connection.execute(
+                    """
+                    UPDATE jobs
+                    SET
+                        status = 'idle',
+                        updated_at = ?,
+                        version = version + 1
+                    WHERE video_id = ?
+                    """,
+                    (timestamp, target_video_id),
+                )
+                connection.commit()
+                return self._get_row_by_video_id_sync(target_video_id)
+
+            connection.execute(
+                "UPDATE videos SET video_name = ?, updated_at = ? WHERE id = ?",
+                (new_name, timestamp, source_video_id),
+            )
+            connection.execute(
+                "UPDATE jobs SET updated_at = ?, version = version + 1 WHERE video_id = ?",
+                (timestamp, source_video_id),
+            )
+            connection.commit()
+
+        return self._get_row_by_video_id_sync(source_video_id)
 
     async def update_row(self, video_id: str, payload: UpdateSheetRowRequest) -> SheetRow:
         await self._ensure_db_ready()
@@ -380,6 +485,55 @@ class SheetService:
             )
             connection.commit()
 
+    def _repair_orphan_jobs_sync(self) -> int:
+        timestamp = int(time.time())
+        repaired = 0
+        with self._connect() as connection:
+            orphan_videos = connection.execute(
+                """
+                SELECT v.id AS video_id
+                FROM videos v
+                LEFT JOIN jobs j ON j.video_id = v.id
+                WHERE j.id IS NULL
+                """
+            ).fetchall()
+
+            for row in orphan_videos:
+                video_id = str(row["video_id"])
+                job_id = uuid4().hex
+                connection.execute(
+                    """
+                    INSERT INTO jobs (
+                        id,
+                        video_id,
+                        device_id,
+                        products,
+                        hashtag_inline,
+                        created_by_duplicate,
+                        status,
+                        meta,
+                        version,
+                        started_at,
+                        finished_at,
+                        created_at,
+                        updated_at
+                    ) VALUES (?, ?, '', '', NULL, 0, 'idle', ?, 0, NULL, NULL, ?, ?)
+                    """,
+                    (
+                        job_id,
+                        video_id,
+                        json.dumps({"jobId": job_id}, ensure_ascii=True),
+                        timestamp,
+                        timestamp,
+                    ),
+                )
+                repaired += 1
+
+            if repaired > 0:
+                connection.commit()
+
+        return repaired
+
     def _ensure_columns_sync(
         self,
         connection: sqlite3.Connection,
@@ -522,6 +676,41 @@ class SheetService:
 
             if existing:
                 video_id = str(existing["id"])
+                has_job = connection.execute(
+                    "SELECT id FROM jobs WHERE video_id = ?",
+                    (video_id,),
+                ).fetchone()
+                if has_job is None:
+                    # Recover broken state where a video row exists without a matching job row.
+                    job_id = uuid4().hex
+                    connection.execute(
+                        """
+                        INSERT INTO jobs (
+                            id,
+                            video_id,
+                            device_id,
+                            products,
+                            hashtag_inline,
+                            created_by_duplicate,
+                            status,
+                            meta,
+                            version,
+                            started_at,
+                            finished_at,
+                            created_at,
+                            updated_at
+                        ) VALUES (?, ?, '', '', NULL, ?, 'idle', ?, 0, NULL, NULL, ?, ?)
+                        """,
+                        (
+                            job_id,
+                            video_id,
+                            1 if created_by_duplicate else 0,
+                            json.dumps({"jobId": job_id}, ensure_ascii=True),
+                            timestamp,
+                            timestamp,
+                        ),
+                    )
+
                 connection.execute(
                     """
                     UPDATE jobs

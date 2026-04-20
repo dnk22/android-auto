@@ -42,6 +42,7 @@ class SessionResponse(BaseModel):
     status: Literal["watching", "idle"]
     autoReady: bool
     isVideoFolderCreated: bool
+    videoFolderPath: str | None = None
 
 
 class CreateVideoFolderRequest(BaseModel):
@@ -70,7 +71,9 @@ class RenameFileResponse(BaseModel):
 
 
 class StorageListResponse(BaseModel):
-    files: list[str]
+    wsUrl: str
+    videoFolderPath: str | None = None
+    rows: list[SheetRow]
 
 
 class JobResponse(BaseModel):

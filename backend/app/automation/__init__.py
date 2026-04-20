@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import importlib.util
+import asyncio
+import logging
 import sys
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from types import ModuleType
 
@@ -57,11 +60,50 @@ _controller_mod = _load_module(
 )
 
 
+LogSink = Callable[[str], Awaitable[None]]
+
+
+def _drain_task(task: asyncio.Task[None]) -> None:
+    try:
+        _ = task.exception()
+    except asyncio.CancelledError:
+        return
+
+
+class _AutomationWsLogHandler(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__()
+        self._sink: LogSink | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    def set_sink(self, sink: LogSink | None) -> None:
+        self._sink = sink
+
+    def set_loop(self, loop: asyncio.AbstractEventLoop | None) -> None:
+        self._loop = loop
+
+    def emit(self, record: logging.LogRecord) -> None:
+        sink = self._sink
+        loop = self._loop
+        if sink is None or loop is None:
+            return
+
+        line = record.getMessage()
+
+        def _send() -> None:
+            task = loop.create_task(sink(line))
+            task.add_done_callback(_drain_task)
+
+        loop.call_soon_threadsafe(_send)
+
+
 class AutomationRuntime:
     def __init__(self) -> None:
-        import logging
-
         self._logger = logging.getLogger("automation")
+        self._logger.setLevel(logging.INFO)
+        self._logger.propagate = False
+        self._ws_log_handler = _AutomationWsLogHandler()
+        self._logger.addHandler(self._ws_log_handler)
         self._settings = _constants_mod.load_automation_settings()
 
         self._sheet_service = _sheet_service_mod.SheetService(
@@ -101,20 +143,32 @@ class AutomationRuntime:
             self._sheet_service,
             self._storage_service,
             self._job_queue,
+            self._watcher,
         )
 
     @property
     def router(self) -> APIRouter:
         return self._router
 
+    def set_log_sink(self, sink: LogSink) -> None:
+        self._ws_log_handler.set_sink(sink)
+
     async def startup(self) -> None:
+        self._ws_log_handler.set_loop(asyncio.get_running_loop())
         await self._sheet_service.startup()
         await self._storage_service.ensure_storage_dir()
         await self._storage_service.sync_sheet_from_storage()
         await self._job_queue.start()
         await self._watcher.start()
+        watch_path_raw = await self._storage_service.get_video_folder_path()
+        watch_path = Path(watch_path_raw) if watch_path_raw else None
+        await self._watcher.update_watch_state(
+            enabled=watch_path is not None,
+            watch_path=watch_path,
+        )
 
     async def shutdown(self) -> None:
+        self._ws_log_handler.set_loop(None)
         await self._watcher.stop()
         await self._job_queue.stop()
         await self._sheet_service.cancel()
@@ -125,6 +179,10 @@ _runtime = AutomationRuntime()
 
 def get_router() -> APIRouter:
     return _runtime.router
+
+
+def set_log_sink(sink: LogSink) -> None:
+    _runtime.set_log_sink(sink)
 
 
 async def startup() -> None:

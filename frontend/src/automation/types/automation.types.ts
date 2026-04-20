@@ -34,6 +34,7 @@ export type SessionState = {
   status: SessionStatus;
   autoReady: boolean;
   isVideoFolderCreated: boolean;
+  videoFolderPath?: string | null;
 };
 
 export type UpdateRowPayload = {
@@ -69,7 +70,9 @@ export type RenameFilePayload = {
 };
 
 export type StorageListResponse = {
-  files: string[];
+  wsUrl: string;
+  videoFolderPath?: string | null;
+  rows: SheetRow[];
 };
 
 export type DuplicateFileEvent = {
@@ -83,3 +86,37 @@ export type DuplicateFileEvent = {
 };
 
 export type AutomationWsEvent = DuplicateFileEvent | { event: string; ts: number; payload: Record<string, unknown> };
+
+export type StorageRowUpsertedEvent = {
+  event: "storage_row_upserted";
+  ts: number;
+  payload: {
+    row: SheetRow;
+  };
+};
+
+export type StorageRowRenamedEvent = {
+  event: "storage_row_renamed";
+  ts: number;
+  payload: {
+    oldName: string;
+    newName: string;
+    row?: SheetRow | null;
+  };
+};
+
+export type StorageRowDeletedEvent = {
+  event: "storage_row_deleted";
+  ts: number;
+  payload: {
+    videoName: string;
+    row?: SheetRow | null;
+  };
+};
+
+export type StorageWsEvent =
+  | DuplicateFileEvent
+  | StorageRowUpsertedEvent
+  | StorageRowRenamedEvent
+  | StorageRowDeletedEvent
+  | { event: string; ts: number; payload: Record<string, unknown> };

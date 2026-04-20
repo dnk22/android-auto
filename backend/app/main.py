@@ -94,6 +94,7 @@ app.add_middleware(
 
 _include_routers(app, container)
 app.include_router(automation.get_router())
+automation.set_log_sink(container.ws_manager.broadcast_log)
 
 
 @app.websocket("/ws/devices")

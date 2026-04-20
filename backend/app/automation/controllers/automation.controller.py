@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 
 from app.automation.models.sheet_model import SheetRow
 from app.automation.schemas.automation_schema import (
@@ -17,11 +19,36 @@ from app.automation.schemas.automation_schema import (
 )
 
 
-def build_router(sheet_service, storage_service, queue_service) -> APIRouter:
+def build_router(sheet_service, storage_service, queue_service, watcher_service=None) -> APIRouter:
     router = APIRouter(tags=["automation"])
+
+    async def _sync_storage_watcher(_: str) -> None:
+        if watcher_service is None:
+            return
+        watch_path_raw = await storage_service.get_video_folder_path()
+        watch_path = Path(watch_path_raw) if watch_path_raw else None
+        should_watch = watch_path is not None
+        await watcher_service.update_watch_state(enabled=should_watch, watch_path=watch_path)
+        if should_watch:
+            # Catch up pre-existing files that were already in the folder before watcher was enabled.
+            await storage_service.sync_sheet_from_storage()
 
     @router.websocket("/ws/automation/events")
     async def automation_events_ws(websocket: WebSocket) -> None:
+        await websocket.accept()
+        queue = await storage_service.subscribe_events()
+
+        try:
+            while True:
+                event = await queue.get()
+                await websocket.send_json(event)
+        except WebSocketDisconnect:
+            return
+        finally:
+            await storage_service.unsubscribe_events(queue)
+
+    @router.websocket("/ws/automation/storage")
+    async def automation_storage_ws(websocket: WebSocket) -> None:
         await websocket.accept()
         queue = await storage_service.subscribe_events()
 
@@ -76,10 +103,12 @@ def build_router(sheet_service, storage_service, queue_service) -> APIRouter:
     async def get_session() -> SessionResponse:
         session = await sheet_service.get_session()
         is_video_folder_created = await storage_service.is_video_folder_created()
+        video_folder_path = await storage_service.get_video_folder_path()
         return SessionResponse(
             status=session.status,
             autoReady=session.autoReady,
             isVideoFolderCreated=is_video_folder_created,
+            videoFolderPath=video_folder_path,
         )
 
     @router.patch("/automation/session", response_model=SessionResponse)
@@ -89,11 +118,14 @@ def build_router(sheet_service, storage_service, queue_service) -> APIRouter:
                 status=payload.status,
                 auto_ready=payload.autoReady,
             )
+            await _sync_storage_watcher(session.status)
             is_video_folder_created = await storage_service.is_video_folder_created()
+            video_folder_path = await storage_service.get_video_folder_path()
             return SessionResponse(
                 status=session.status,
                 autoReady=session.autoReady,
                 isVideoFolderCreated=is_video_folder_created,
+                videoFolderPath=video_folder_path,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -101,6 +133,8 @@ def build_router(sheet_service, storage_service, queue_service) -> APIRouter:
     @router.post("/storage/createVideoFolder", response_model=CreateVideoFolderResponse)
     async def create_video_folder(payload: CreateVideoFolderRequest) -> CreateVideoFolderResponse:
         target = await storage_service.create_video_folder(is_desktop=payload.isDesktop)
+        session = await sheet_service.get_session()
+        await _sync_storage_watcher(session.status)
         is_video_folder_created = await storage_service.is_video_folder_created()
         return CreateVideoFolderResponse(
             ok=True,
@@ -110,9 +144,16 @@ def build_router(sheet_service, storage_service, queue_service) -> APIRouter:
         )
 
     @router.get("/automation/storage", response_model=StorageListResponse)
-    async def list_storage() -> StorageListResponse:
-        files = await storage_service.list_files()
-        return StorageListResponse(files=files)
+    async def list_storage(request: Request) -> StorageListResponse:
+        scheme = "wss" if request.url.scheme == "https" else "ws"
+        ws_url = f"{scheme}://{request.url.netloc}/ws/automation/storage"
+        rows = await storage_service.list_storage_rows()
+        video_folder_path = await storage_service.get_video_folder_path()
+        return StorageListResponse(
+            wsUrl=ws_url,
+            videoFolderPath=video_folder_path,
+            rows=rows,
+        )
 
     @router.post("/automation/storage/rename", response_model=RenameFileResponse)
     async def rename_storage_file(payload: RenameFileRequest) -> RenameFileResponse:
