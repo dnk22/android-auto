@@ -64,7 +64,7 @@ export function SheetMergedInfoModal({
               Thời gian bắt đầu - kết thúc
             </p>
             <p className="text-[var(--ink)]">
-              {startedAtText || "-"} {"->"} {finishedAtText || "-"}
+              {startedAtText} {" -- "} {finishedAtText}
             </p>
           </div>
         </div>
