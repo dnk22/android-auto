@@ -6,6 +6,12 @@ interface SheetEditorTableHeaderProps {
   table: Table<SheetEditorFieldRow>;
 }
 
+type ColumnLayoutMeta = {
+  width?: number | string;
+  minWidth?: number;
+  maxWidth?: number;
+};
+
 export function SheetEditorTableHeader({ table }: SheetEditorTableHeaderProps): JSX.Element {
   return (
     <thead>
@@ -13,13 +19,17 @@ export function SheetEditorTableHeader({ table }: SheetEditorTableHeaderProps): 
         <tr key={headerGroup.id} className="border-b border-[var(--card-border)]">
           {headerGroup.headers.map((header) => {
             const layout = header.column.columnDef.meta as
-              | { width?: number | string; minWidth?: number; maxWidth?: number }
+              | ColumnLayoutMeta
               | undefined;
+            const columnStyle = {
+              ...layout,
+              width: header.getSize(),
+            };
 
             return (
               <th
                 key={header.id}
-                style={layout}
+                style={columnStyle}
                 className={`px-3 py-3 text-left text-[11px] uppercase tracking-[0.08em] text-[var(--muted)] whitespace-nowrap ${
                   header.column.id === "action"
                     ? "sticky right-0 z-20 bg-[var(--panel-soft)] shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.45)]"

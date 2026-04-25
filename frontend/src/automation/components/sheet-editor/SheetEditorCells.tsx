@@ -3,8 +3,9 @@ import { useController } from "react-hook-form";
 
 import DebouncedButton from "../../../components/common/DebouncedButton";
 import type { SheetEditorTableProps } from "../../../types/automation/editor.types";
-import type { SheetStatus } from "../../types/automation.types";
+import type { SheetStatus } from "../../types/sheetStatus.types";
 import type { SheetMergedInfoPayload } from "../../hooks/useSheetMergedInfoModal";
+import { getSheetStatusLabelVi } from "../../utils/constants/sheetStatus.constants";
 
 interface SheetTextInputCellProps {
   rowIndex: number;
@@ -248,7 +249,7 @@ interface SheetStatusReadonlyCellProps {
 export function SheetStatusReadonlyCell({ status }: SheetStatusReadonlyCellProps): JSX.Element {
   return (
     <div className="inline-flex min-w-[96px] items-center justify-center rounded-md border border-[var(--card-border)] bg-[var(--panel-soft)] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">
-      {status}
+      {getSheetStatusLabelVi(status)}
     </div>
   );
 }

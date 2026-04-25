@@ -6,6 +6,12 @@ interface SheetEditorTableBodyProps {
   table: Table<SheetEditorFieldRow>;
 }
 
+type ColumnLayoutMeta = {
+  width?: number | string;
+  minWidth?: number;
+  maxWidth?: number;
+};
+
 export function SheetEditorTableBody({ table }: SheetEditorTableBodyProps): JSX.Element {
   return (
     <tbody>
@@ -13,13 +19,17 @@ export function SheetEditorTableBody({ table }: SheetEditorTableBodyProps): JSX.
         <tr key={row.id} className="border-b border-[var(--card-border)] align-top text-xs">
           {row.getVisibleCells().map((cell) => {
             const layout = cell.column.columnDef.meta as
-              | { width?: number | string; minWidth?: number; maxWidth?: number }
+              | ColumnLayoutMeta
               | undefined;
+            const columnStyle = {
+              ...layout,
+              width: cell.column.getSize(),
+            };
 
             return (
               <td
                 key={cell.id}
-                style={layout}
+                style={columnStyle}
                 className={`px-3 py-3 whitespace-nowrap ${
                   cell.column.id === "action"
                     ? "sticky right-0 z-10 bg-[var(--panel-soft)] shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.45)]"

@@ -37,6 +37,15 @@ type ColumnLayoutMeta = {
   maxWidth?: number;
 };
 
+function withColumnLayout(layout: ColumnLayoutMeta) {
+  return {
+    size: typeof layout.width === "number" ? layout.width : undefined,
+    minSize: layout.minWidth,
+    maxSize: layout.maxWidth,
+    meta: layout as ColumnLayoutMeta,
+  };
+}
+
 export function useSheetEditorTable({
   fields,
   register,
@@ -50,7 +59,7 @@ export function useSheetEditorTable({
       columnHelper.accessor("videoName", {
         id: "videoName",
         header: SHEET_EDITOR_COLUMN_LABELS.videoName,
-        meta: { width: 100, maxWidth: 200 } as ColumnLayoutMeta,
+        ...withColumnLayout({ width: 200, maxWidth: 200 }),
         cell: (info) => (
           <div className="truncate text-[var(--ink)]">{info.getValue()}</div>
         ),
@@ -58,7 +67,7 @@ export function useSheetEditorTable({
       columnHelper.display({
         id: "deviceId",
         header: SHEET_EDITOR_COLUMN_LABELS.deviceId,
-        meta: { width: 80, maxWidth: 200 } as ColumnLayoutMeta,
+        ...withColumnLayout({ width: 100, maxWidth: 200 }),
         cell: ({ row }) => (
           <SheetDeviceSelectCell
             rowIndex={row.index}
@@ -70,7 +79,7 @@ export function useSheetEditorTable({
       columnHelper.display({
         id: "products",
         header: SHEET_EDITOR_COLUMN_LABELS.products,
-        meta: { width: 200, maxWidth: 260 } as ColumnLayoutMeta,
+        ...withColumnLayout({ width: 300, maxWidth: 350 }),
         cell: ({ row }) => (
           <SheetProductsChipsInputCell rowIndex={row.index} control={control} />
         ),
@@ -78,7 +87,7 @@ export function useSheetEditorTable({
       columnHelper.display({
         id: "hashtagInline",
         header: SHEET_EDITOR_COLUMN_LABELS.hashtagInline,
-        meta: { width: 100, maxWidth: 200 } as ColumnLayoutMeta,
+        ...withColumnLayout({ width: 120, maxWidth: 250 }),
         cell: ({ row }) => (
           <SheetTextInputCell
             rowIndex={row.index}
@@ -90,7 +99,7 @@ export function useSheetEditorTable({
       columnHelper.display({
         id: "status",
         header: SHEET_EDITOR_COLUMN_LABELS.status,
-        meta: { width: 100, minWidth: 140 } as ColumnLayoutMeta,
+        ...withColumnLayout({ width: 100, minWidth: 140 }),
         cell: ({ row }) => (
           <SheetStatusReadonlyCell status={row.original.status} />
         ),
@@ -98,7 +107,7 @@ export function useSheetEditorTable({
       columnHelper.display({
         id: "details",
         header: SHEET_EDITOR_COLUMN_LABELS.details,
-        meta: { width: 100 } as ColumnLayoutMeta,
+        ...withColumnLayout({ width: 100 }),
         cell: ({ row }) => (
           <SheetMergedInfoTriggerCell
             payload={{
@@ -114,7 +123,7 @@ export function useSheetEditorTable({
       columnHelper.display({
         id: "action",
         header: SHEET_EDITOR_COLUMN_LABELS.action,
-        meta: { width: 100 } as ColumnLayoutMeta,
+        ...withColumnLayout({ width: 100 }),
         cell: ({ row }) => (
           <SheetSaveButtonCell rowIndex={row.index} onSaveRow={onSaveRow} />
         ),

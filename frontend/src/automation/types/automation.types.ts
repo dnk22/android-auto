@@ -1,13 +1,4 @@
-export type SheetStatus =
-  | "idle"
-  | "queued"
-  | "ready"
-  | "running"
-  | "paused"
-  | "stopped"
-  | "done"
-  | "error"
-  | "missing_file";
+import type { SheetStatus } from "./sheetStatus.types";
 
 export type SessionStatus = "watching" | "idle";
 
