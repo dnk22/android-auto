@@ -23,16 +23,43 @@ function clamp(value: number): number {
   return value;
 }
 
+function normalizeControlPath(streamPathname: string, deviceId: string): string {
+  const encodedDeviceId = encodeURIComponent(deviceId);
+  const patterns = [/\/stream\/[^/]+\/?$/, /\/ws\/stream\/[^/]+\/?$/];
+
+  for (const pattern of patterns) {
+    if (pattern.test(streamPathname)) {
+      return streamPathname.replace(pattern, `/ws/control/${encodedDeviceId}`);
+    }
+  }
+
+  return `/ws/control/${encodedDeviceId}`;
+}
+
 function buildControlWsUrl(streamWsUrl: string, deviceId: string): string | null {
   if (!streamWsUrl || !deviceId) {
     return null;
   }
 
-  const streamUrl = new URL(streamWsUrl);
-  streamUrl.pathname = `/ws/control/${encodeURIComponent(deviceId)}`;
-  streamUrl.search = "";
-  streamUrl.hash = "";
-  return streamUrl.toString();
+  try {
+    const baseHref = typeof window !== "undefined" ? window.location.href : "http://localhost";
+    const streamUrl = new URL(streamWsUrl, baseHref);
+    streamUrl.protocol = streamUrl.protocol === "https:" ? "wss:" : "ws:";
+    streamUrl.pathname = normalizeControlPath(streamUrl.pathname, deviceId);
+    streamUrl.search = "";
+    streamUrl.hash = "";
+    return streamUrl.toString();
+  } catch {
+    return null;
+  }
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "unknown_error";
 }
 
 export function useMainStreamController(): MainStreamControllerResult {
@@ -80,6 +107,7 @@ export function useMainStreamController(): MainStreamControllerResult {
   const openControlSocket = useCallback((deviceId: string, streamWsUrl: string) => {
     const wsUrl = buildControlWsUrl(streamWsUrl, deviceId);
     if (!wsUrl) {
+      addLog(`Control WS URL invalid for stream URL: ${streamWsUrl}`);
       return;
     }
 
@@ -96,6 +124,14 @@ export function useMainStreamController(): MainStreamControllerResult {
     const socket = new WebSocket(wsUrl);
     controlSocketRef.current = socket;
     controlDeviceRef.current = deviceId;
+
+    socket.onopen = () => {
+      addLog(`Control WS connected: ${deviceId}`);
+    };
+
+    socket.onerror = () => {
+      addLog(`Control WS connection error: ${deviceId}`);
+    };
 
     socket.onmessage = (event) => {
       try {
@@ -152,6 +188,21 @@ export function useMainStreamController(): MainStreamControllerResult {
         y,
       }),
     );
+  }, []);
+
+  const sendControlKey = useCallback((action: ToolbarAction): boolean => {
+    const socket = controlSocketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+
+    socket.send(
+      JSON.stringify({
+        type: "key",
+        key: action,
+      }),
+    );
+    return true;
   }, []);
 
   const flushPendingMove = useCallback(() => {
@@ -278,19 +329,28 @@ export function useMainStreamController(): MainStreamControllerResult {
       return;
     }
 
-    addLog(`Toolbar action queued via backend API: ${action}`);
-
     const normalizedAction = action === "recents" ? "recents" : action;
     if (!normalizedAction || !["back", "home", "recents"].includes(normalizedAction)) {
       return;
     }
 
     if (syncAllDevices) {
-      void control.broadcastAction(normalizedAction);
+      addLog(`Toolbar action queued via backend API (broadcast): ${normalizedAction}`);
+      void control.broadcastAction(normalizedAction).catch((error: unknown) => {
+        addLog(`Toolbar action failed (broadcast): ${getErrorMessage(error)}`);
+      });
       return;
     }
 
-    void control.action(targetDevice, normalizedAction);
+    if (sendControlKey(normalizedAction)) {
+      addLog(`Toolbar action sent via control WS: ${normalizedAction}`);
+      return;
+    }
+
+    addLog(`Control WS not ready, fallback backend API: ${normalizedAction}`);
+    void control.action(targetDevice, normalizedAction).catch((error: unknown) => {
+      addLog(`Toolbar action failed (${targetDevice}): ${getErrorMessage(error)}`);
+    });
   };
 
   const handleSocketReady = (socket: WebSocket): void => {

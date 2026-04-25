@@ -158,6 +158,14 @@ export const createControlGateway = (server: HttpServer, sessionManager: Session
             await dispatch(message);
           } catch (error) {
             const messageText = error instanceof Error ? error.message : "control_dispatch_failed";
+            if (client.readyState === client.OPEN) {
+              client.send(
+                JSON.stringify({
+                  type: "error",
+                  message: messageText,
+                }),
+              );
+            }
             log({
               level: "warn",
               event: "control_dispatch_failed",
