@@ -78,6 +78,11 @@ class StorageListResponse(BaseModel):
     rows: list[SheetRow]
 
 
+class OpenVideoFolderResponse(BaseModel):
+    ok: bool
+    path: str
+
+
 class JobResponse(BaseModel):
     ok: bool
     job: AutomationJob

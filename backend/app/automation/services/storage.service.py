@@ -3,6 +3,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import shlex
+import shutil
+import sys
 import time
 from pathlib import Path
 from typing import Protocol
@@ -404,3 +408,32 @@ class StorageService:
             },
         )
         self._log("info", "storage_deleted", videoName=video_name)
+
+    async def open_video_folder(self) -> str:
+        target_dir = await self.get_active_video_folder_path()
+        if not await asyncio.to_thread(target_dir.exists):
+            raise FileNotFoundError("video folder not found")
+
+        if os.name == "nt":
+            command = ["explorer", str(target_dir)]
+        elif sys.platform == "darwin":
+            command = ["open", str(target_dir)]
+        else:
+            opener = shutil.which("xdg-open")
+            if not opener:
+                raise RuntimeError("xdg-open is not available on this machine")
+            command = [opener, str(target_dir)]
+
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _stdout, stderr = await process.communicate()
+        if process.returncode != 0:
+            message = stderr.decode("utf-8", errors="ignore").strip()
+            safe_command = " ".join(shlex.quote(part) for part in command)
+            raise RuntimeError(message or f"failed to open folder with command: {safe_command}")
+
+        self._log("info", "video_folder_opened", path=str(target_dir))
+        return str(target_dir)

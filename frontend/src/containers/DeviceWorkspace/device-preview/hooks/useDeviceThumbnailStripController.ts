@@ -46,25 +46,25 @@ export function useDeviceThumbnailStripController(): DeviceThumbnailStripControl
         async () => {
           if (syncAllDevices) {
             await control.testU2All();
-            addLog("U2 test: da gui lenh den tat ca device dang connected");
+            addLog("Auto test: da gui lenh den tat ca device dang connected");
             return;
           }
 
           await control.testU2(selectedDevice);
-          addLog(`U2 test: da gui lenh den device active ${selectedDevice}`);
+          addLog(`Auto test: da gui lenh den device active ${selectedDevice}`);
         },
         {
           pending: syncAllDevices
-            ? "Đang test U2 cho tất cả device connected..."
-            : `Đang test U2 cho ${selectedDevice}...`,
+            ? "Đang test auto cho tất cả device connected..."
+            : `Đang test auto cho ${selectedDevice}...`,
           success: syncAllDevices
-            ? "Đã gửi test U2 cho tất cả device connected"
-            : `Đã gửi test U2 cho ${selectedDevice}`,
-          error: "Không thể gửi test U2",
+            ? "Đã gửi test auto cho tất cả device connected"
+            : `Đã gửi test auto cho ${selectedDevice}`,
+          error: "Không thể gửi test auto",
         },
       );
     } catch (error) {
-      addLog(`U2 test lỗi: ${getErrorMessage(error, "Không thể gửi test U2")}`);
+      addLog(`auto test lỗi: ${getErrorMessage(error, "Không thể gửi test auto")}`);
     } finally {
       setIsTestingU2(false);
     }

@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import {
   deleteFile,
   getStorage,
+  openStorageFolder,
   renameFile,
 } from "../api/automation.api";
 import { useAutomationStore } from "../store/automation.store";
@@ -200,6 +201,15 @@ export function useStorage() {
     },
   });
 
+  const openFolderMutation = useMutation({
+    mutationFn: async () => {
+      await openStorageFolder();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Open folder failed");
+    },
+  });
+
   return useMemo(
     () => ({
       rows: query.data?.rows ?? [],
@@ -208,8 +218,10 @@ export function useStorage() {
       loading: query.isLoading,
       renameFile: renameMutation.mutateAsync,
       deleteFile: deleteMutation.mutateAsync,
+      openFolder: openFolderMutation.mutateAsync,
       isRenaming: renameMutation.isPending,
       isDeleting: deleteMutation.isPending,
+      isOpeningFolder: openFolderMutation.isPending,
     }),
     [
       query.data?.rows,
@@ -218,8 +230,10 @@ export function useStorage() {
       query.isLoading,
       renameMutation.mutateAsync,
       deleteMutation.mutateAsync,
+      openFolderMutation.mutateAsync,
       renameMutation.isPending,
       deleteMutation.isPending,
+      openFolderMutation.isPending,
     ],
   );
 }

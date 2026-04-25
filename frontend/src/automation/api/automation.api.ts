@@ -1,6 +1,7 @@
 import type {
   CreateVideoFolderPayload,
   CreateVideoFolderResponse,
+  OpenVideoFolderResponse,
   RenameFilePayload,
   SessionState,
   SheetRow,
@@ -90,6 +91,12 @@ export async function renameFile(payload: RenameFilePayload): Promise<void> {
 export async function deleteFile(videoName: string): Promise<void> {
   await requestJson<void>(`/automation/storage/${encodeURIComponent(videoName)}`, {
     method: "DELETE",
+  });
+}
+
+export async function openStorageFolder(): Promise<OpenVideoFolderResponse> {
+  return requestJson<OpenVideoFolderResponse>("/automation/storage/open-folder", {
+    method: "POST",
   });
 }
 

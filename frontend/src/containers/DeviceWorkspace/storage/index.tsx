@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FolderOpen } from "iconsax-reactjs";
 import { toast } from "react-toastify";
 
 import { DuplicateModal } from "../../../automation/components/DuplicateModal";
@@ -21,8 +22,10 @@ export default function StorageSectionContainer(): JSX.Element {
     loading,
     renameFile,
     deleteFile,
+    openFolder,
     isDeleting,
     isRenaming,
+    isOpeningFolder,
   } = useStorage();
   const duplicateModal = useAutomationStore((state) => state.duplicateModal);
   const closeDuplicateModal = useAutomationStore(
@@ -50,6 +53,7 @@ export default function StorageSectionContainer(): JSX.Element {
 
   const pending = isDeleting || isRenaming;
   const hasRows = rows.length > 0;
+  const canOpenFolder = Boolean(videoFolderPath) && !isOpeningFolder;
 
   const startEdit = (videoId: string, videoName: string) => {
     setEditingVideoId(videoId);
@@ -95,12 +99,33 @@ export default function StorageSectionContainer(): JSX.Element {
     void deleteFile(videoName);
   };
 
+  const onOpenFolder = () => {
+    if (!videoFolderPath) {
+      toast.error("Chưa có folder được cấu hình");
+      return;
+    }
+    void openFolder();
+  };
+
   return (
     <>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-          Storage
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+            Storage
+          </h2>
+          <DebouncedButton
+            type="button"
+            onClick={onOpenFolder}
+            disabled={!canOpenFolder}
+            title="Mở folder hiện tại"
+            aria-label="Mở folder hiện tại"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--card-border)] text-[var(--muted)] transition hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <FolderOpen size="16" color="currentColor" variant="Linear" />
+          </DebouncedButton>
+        </div>
+
         <p className="text-[11px] text-[var(--muted)]">
           Folder: {videoFolderPath || "(chưa cấu hình)"}
         </p>
@@ -149,24 +174,38 @@ export default function StorageSectionContainer(): JSX.Element {
                     {row.videoName}
                   </DebouncedButton>
                 )}
-                <div className="mt-1 text-[11px] text-[var(--muted)]">status: {row.status}</div>
+                <div className="mt-1 text-[11px] text-[var(--muted)]">
+                  status: {row.status}
+                </div>
 
                 <div className="mt-2 flex gap-1">
                   <DebouncedButton
                     type="button"
                     onClick={() => onRenameAction(row.videoId, row.videoName)}
                     disabled={pending}
-                    className="flex-1 rounded-lg border border-[var(--card-border)] px-2 py-1 text-xs text-[var(--ink)] disabled:opacity-50"
+                    className={`flex-1 rounded-lg px-2 py-1 text-xs font-semibold disabled:opacity-50 ${
+                      editingVideoId !== row.videoId
+                        ? "border border-[var(--card-border)] text-[var(--ink)]"
+                        : "bg-blue-600 text-white"
+                    }`}
                   >
                     {editingVideoId === row.videoId ? "Lưu" : "Đổi tên"}
                   </DebouncedButton>
                   <DebouncedButton
                     type="button"
-                    onClick={() => onDelete(row.videoName)}
+                    onClick={() =>
+                      editingVideoId === row.videoId
+                        ? cancelEdit()
+                        : onDelete(row.videoName)
+                    }
                     disabled={pending}
-                    className="flex-1 rounded-lg bg-red-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                    className={`flex-1 rounded-lg px-2 py-1 text-xs font-semibold disabled:opacity-50 ${
+                      editingVideoId === row.videoId
+                        ? "border border-[var(--card-border)] text-[var(--ink)]"
+                        : "bg-red-600 text-white"
+                    }`}
                   >
-                    Xóa
+                    {editingVideoId === row.videoId ? "Hủy" : "Xóa"}
                   </DebouncedButton>
                 </div>
               </div>

@@ -9,6 +9,7 @@ from app.automation.schemas.automation_schema import (
     BulkUpdateSheetRequest,
     CreateVideoFolderRequest,
     CreateVideoFolderResponse,
+    OpenVideoFolderResponse,
     RenameFileRequest,
     RenameFileResponse,
     SessionResponse,
@@ -159,6 +160,16 @@ def build_router(sheet_service, storage_service, queue_service, watcher_service=
             videoFolderPath=video_folder_path,
             rows=rows,
         )
+
+    @router.post("/automation/storage/open-folder", response_model=OpenVideoFolderResponse)
+    async def open_storage_folder() -> OpenVideoFolderResponse:
+        try:
+            path = await storage_service.open_video_folder()
+            return OpenVideoFolderResponse(ok=True, path=path)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @router.post("/automation/storage/rename", response_model=RenameFileResponse)
     async def rename_storage_file(payload: RenameFileRequest) -> RenameFileResponse:

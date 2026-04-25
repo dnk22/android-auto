@@ -37,7 +37,7 @@ export default function DeviceThumbnailStripContainer(): JSX.Element {
             disabled={isTestingU2 || (!syncAllDevices && !selectedDevice)}
             className="rounded-full bg-[var(--panel-soft)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isTestingU2 ? "Test U2..." : "Test U2"}
+            {isTestingU2 ? "Test auto..." : "Test auto"}
           </DebouncedButton>
         </div>
       </div>

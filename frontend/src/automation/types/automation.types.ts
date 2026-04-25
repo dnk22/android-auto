@@ -78,6 +78,11 @@ export type StorageListResponse = {
   rows: SheetRow[];
 };
 
+export type OpenVideoFolderResponse = {
+  ok: boolean;
+  path: string;
+};
+
 export type DuplicateFileEvent = {
   event: "duplicate_file_detected";
   ts: number;
