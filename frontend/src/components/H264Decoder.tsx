@@ -417,7 +417,6 @@ export default function H264Decoder({
         output: (frame) => {
           if (!hasLoggedFirstFrameRef.current) {
             hasLoggedFirstFrameRef.current = true;
-            console.info("[H264Decoder] first frame decoded", { serial });
           }
 
           const canvas = canvasRef.current;
@@ -457,12 +456,6 @@ export default function H264Decoder({
         avc: { format: "annexb" },
         optimizeForLatency: true,
         hardwareAcceleration: "prefer-hardware",
-      });
-
-      console.info("[H264Decoder] decoder configured", {
-        serial,
-        codec,
-        annexBConfigBytes: codecConfigAnnexBRef.current?.byteLength ?? 0,
       });
       return instance;
     };

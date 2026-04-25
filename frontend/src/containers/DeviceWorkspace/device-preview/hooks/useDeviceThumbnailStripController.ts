@@ -58,13 +58,15 @@ export function useDeviceThumbnailStripController(): DeviceThumbnailStripControl
             ? "Đang test auto cho tất cả device connected..."
             : `Đang test auto cho ${selectedDevice}...`,
           success: syncAllDevices
-            ? "Đã gửi test auto cho tất cả device connected"
-            : `Đã gửi test auto cho ${selectedDevice}`,
+            ? "Tất cả device connected đã nhận được test auto"
+            : `Device ${selectedDevice} đã nhận được test auto`,
           error: "Không thể gửi test auto",
         },
       );
     } catch (error) {
-      addLog(`auto test lỗi: ${getErrorMessage(error, "Không thể gửi test auto")}`);
+      addLog(
+        `auto test lỗi: ${getErrorMessage(error, "Không thể gửi test auto")}`,
+      );
     } finally {
       setIsTestingU2(false);
     }

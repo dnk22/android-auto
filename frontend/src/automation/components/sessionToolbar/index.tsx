@@ -38,6 +38,8 @@ export function SessionToolbar(): JSX.Element {
     [createVideoFolderAt],
   );
 
+  const isDisableAutoReady = !hasU2Device || !isWatching;
+
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -86,7 +88,9 @@ export function SessionToolbar(): JSX.Element {
                     : "bg-emerald-600"
               }`}
               title={
-                hasU2Device ? undefined : "Cần ít nhất 1 device có u2 = true"
+                hasU2Device
+                  ? undefined
+                  : "Cần ít nhất 1 device để bắt đầu session"
               }
             >
               {isWatching ? (
@@ -105,9 +109,9 @@ export function SessionToolbar(): JSX.Element {
             <DebouncedButton
               type="button"
               onClick={handleAutoReady}
-              disabled={!hasU2Device}
+              disabled={isDisableAutoReady}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold text-white flex items-center gap-1 transition-colors ${
-                !hasU2Device
+                isDisableAutoReady
                   ? "cursor-not-allowed bg-gray-400"
                   : isAutoReady
                     ? "bg-emerald-600"
