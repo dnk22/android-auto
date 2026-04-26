@@ -10,9 +10,9 @@ import type {
   SheetEditorTableProps,
 } from "../../types/automation/editor.types";
 import {
+  SheetActionButtonCell,
   SheetDeviceSelectCell,
   SheetMergedInfoTriggerCell,
-  SheetSaveButtonCell,
   SheetStatusReadonlyCell,
   SheetProductsChipsInputCell,
   SheetTextInputCell,
@@ -27,7 +27,10 @@ interface UseSheetEditorTableParams {
   register: SheetEditorTableProps["register"];
   control: SheetEditorTableProps["control"];
   deviceOptions: string[];
+  isSessionAutoReady: boolean;
   onSaveRow: (index: number) => void;
+  onSetReadyByVideoId: (videoId: string) => void;
+  onDeleteRowByVideoName: (videoName: string) => void;
   onOpenMergedInfo: (payload: SheetMergedInfoPayload) => void;
 }
 
@@ -51,7 +54,10 @@ export function useSheetEditorTable({
   register,
   control,
   deviceOptions,
+  isSessionAutoReady,
   onSaveRow,
+  onSetReadyByVideoId,
+  onDeleteRowByVideoName,
   onOpenMergedInfo,
 }: UseSheetEditorTableParams) {
   const columns = useMemo(
@@ -125,11 +131,32 @@ export function useSheetEditorTable({
         header: SHEET_EDITOR_COLUMN_LABELS.action,
         ...withColumnLayout({ width: 100 }),
         cell: ({ row }) => (
-          <SheetSaveButtonCell rowIndex={row.index} onSaveRow={onSaveRow} />
+          <SheetActionButtonCell
+            rowIndex={row.index}
+            videoId={row.original.videoId}
+            status={row.original.status}
+            videoName={row.original.videoName}
+            products={row.original.products}
+            hashtagInline={row.original.hashtagInline}
+            hashtagCommon={row.original.hashtagCommon}
+            isSessionAutoReady={isSessionAutoReady}
+            onSaveRow={onSaveRow}
+            onSetReadyByVideoId={onSetReadyByVideoId}
+            onDeleteRowByVideoName={onDeleteRowByVideoName}
+          />
         ),
       }),
     ],
-    [control, deviceOptions, onOpenMergedInfo, onSaveRow, register],
+    [
+      control,
+      deviceOptions,
+      isSessionAutoReady,
+      onDeleteRowByVideoName,
+      onOpenMergedInfo,
+      onSaveRow,
+      onSetReadyByVideoId,
+      register,
+    ],
   );
 
   return useReactTable({

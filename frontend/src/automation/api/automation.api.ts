@@ -47,6 +47,12 @@ export async function setReady(videoId: string): Promise<void> {
   });
 }
 
+export async function deleteSheetByVideoName(videoName: string): Promise<void> {
+  await requestJson<void>(`/automation/sheet/by-video-name/${encodeURIComponent(videoName)}`, {
+    method: "DELETE",
+  });
+}
+
 export async function saveSheetRows(rows: SheetRow[]): Promise<SheetResponse> {
   return requestJson<SheetResponse>("/automation/sheet", {
     method: "PUT",

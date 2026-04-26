@@ -2,10 +2,13 @@ import { useEffect, useMemo } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 
-import { getSheet } from "../api/automation.api";
+import { getSession, getSheet } from "../api/automation.api";
 import {
+  SESSION_QUERY_KEY,
   SHEET_QUERY_KEY,
+  useDeleteSheetRowByVideoNameMutation,
   useSaveSheetRowMutation,
+  useSetSheetRowReadyMutation,
 } from "../store/automation.mutations.store";
 import { useAutomationStore } from "../store/automation.store";
 import { useStore } from "../../store/useStore";
@@ -56,6 +59,8 @@ export function useSheetEditor() {
   const setSheet = useAutomationStore((state) => state.setSheet);
   const devices = useStore((state) => state.devices);
   const saveRowMutation = useSaveSheetRowMutation();
+  const deleteRowMutation = useDeleteSheetRowByVideoNameMutation();
+  const setReadyMutation = useSetSheetRowReadyMutation();
 
   const { register, control, reset, getValues } =
     useForm<SheetEditorFormValues>({
@@ -73,6 +78,10 @@ export function useSheetEditor() {
   const sheetQuery = useQuery({
     queryKey: SHEET_QUERY_KEY,
     queryFn: getSheet,
+  });
+  const sessionQuery = useQuery({
+    queryKey: SESSION_QUERY_KEY,
+    queryFn: getSession,
   });
 
   const deviceOptions = useMemo(
@@ -120,12 +129,26 @@ export function useSheetEditor() {
         products: productCsv,
         hashtagInline: current.hashtagInline || "",
         status: current.status,
-        meta: current.meta || "",
-        version: Number(current.version || row.version),
+        // meta: current.meta || "",
+        // version: Number(current.version || row.version),
         startedAt: toNumberOrNull(current.startedAt),
         finishedAt: toNumberOrNull(current.finishedAt),
       },
     });
+  };
+
+  const deleteRowByVideoName = (videoName: string): void => {
+    if (!videoName) {
+      return;
+    }
+    deleteRowMutation.mutate(videoName);
+  };
+
+  const setReadyByVideoId = (videoId: string): void => {
+    if (!videoId) {
+      return;
+    }
+    setReadyMutation.mutate(videoId);
   };
 
   return {
@@ -133,7 +156,11 @@ export function useSheetEditor() {
     control,
     fields,
     sheetQuery,
+    sessionQuery,
     deviceOptions,
+    isSessionAutoReady: Boolean(sessionQuery.data?.autoReady),
     saveRowAt,
+    setReadyByVideoId,
+    deleteRowByVideoName,
   };
 }

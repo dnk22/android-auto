@@ -31,7 +31,10 @@ export interface SheetEditorTableProps {
   register: UseFormRegister<SheetEditorFormValues>;
   control: Control<SheetEditorFormValues>;
   deviceOptions: string[];
+  isSessionAutoReady: boolean;
   onSaveRow: (index: number) => void;
+  onSetReadyByVideoId: (videoId: string) => void;
+  onDeleteRowByVideoName: (videoName: string) => void;
   loading: boolean;
 }
 

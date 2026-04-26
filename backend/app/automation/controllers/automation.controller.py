@@ -92,6 +92,16 @@ def build_router(sheet_service, storage_service, queue_service, watcher_service=
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    @router.delete("/automation/sheet/by-video-name/{videoName}")
+    async def delete_sheet_row(videoName: str):
+        try:
+            await sheet_service.delete_row_by_video_name(videoName)
+            return {"ok": True}
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     @router.post("/automation/job/{jobId}/stop")
     async def stop_job(jobId: str):
         try:

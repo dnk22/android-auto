@@ -1,7 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 
-import { createVideoFolder, updateRow, updateSession } from "../api/automation.api";
+import {
+  createVideoFolder,
+  deleteSheetByVideoName,
+  setReady,
+  updateRow,
+  updateSession,
+} from "../api/automation.api";
 import type { SaveRowMutationInput } from "../../types/automation/editor.types";
 import type { CreateVideoFolderPayload } from "../types/automation.types";
 
@@ -19,6 +25,34 @@ export function useSaveSheetRowMutation() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Update row failed");
+    },
+  });
+}
+
+export function useDeleteSheetRowByVideoNameMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (videoName: string) => deleteSheetByVideoName(videoName),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: SHEET_QUERY_KEY });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Delete row failed");
+    },
+  });
+}
+
+export function useSetSheetRowReadyMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (videoId: string) => setReady(videoId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: SHEET_QUERY_KEY });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Set ready failed");
     },
   });
 }

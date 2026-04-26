@@ -3,7 +3,17 @@ import { SheetEditorTable } from "../../../automation/components/sheet-editor/Sh
 import { useSheetEditor } from "../../../automation/hooks/useSheetEditor";
 
 export default function DashboardSummarySection(): JSX.Element {
-  const { register, control, fields, sheetQuery, deviceOptions, saveRowAt } =
+  const {
+    register,
+    control,
+    fields,
+    sheetQuery,
+    isSessionAutoReady,
+    deviceOptions,
+    saveRowAt,
+    setReadyByVideoId,
+    deleteRowByVideoName,
+  } =
     useSheetEditor();
 
   return (
@@ -15,7 +25,10 @@ export default function DashboardSummarySection(): JSX.Element {
         register={register}
         control={control}
         deviceOptions={deviceOptions}
+        isSessionAutoReady={isSessionAutoReady}
         onSaveRow={saveRowAt}
+        onSetReadyByVideoId={setReadyByVideoId}
+        onDeleteRowByVideoName={deleteRowByVideoName}
         loading={sheetQuery.isLoading}
       />
 

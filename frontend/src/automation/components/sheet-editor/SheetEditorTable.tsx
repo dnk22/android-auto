@@ -16,7 +16,10 @@ export function SheetEditorTable({
   register,
   control,
   deviceOptions,
+  isSessionAutoReady,
   onSaveRow,
+  onSetReadyByVideoId,
+  onDeleteRowByVideoName,
   loading,
 }: SheetEditorTableProps): JSX.Element {
   const { selectedInfo, openMergedInfoModal, closeMergedInfoModal } = useSheetMergedInfoModal();
@@ -26,7 +29,10 @@ export function SheetEditorTable({
     register,
     control,
     deviceOptions,
+    isSessionAutoReady,
     onSaveRow,
+    onSetReadyByVideoId,
+    onDeleteRowByVideoName,
     onOpenMergedInfo: openMergedInfoModal,
   });
 
@@ -48,7 +54,7 @@ export function SheetEditorTable({
         {loading ? (
           <div className="p-4 text-sm text-[var(--muted)]">Loading ...</div>
         ) : (
-          <div className="max-h-[420px] overflow-auto">
+          <div className="h-full overflow-auto">
             <table
               className="w-max min-w-full table-fixed border-collapse"
               style={{ minWidth: tableMinWidth }}

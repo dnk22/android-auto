@@ -228,6 +228,18 @@ class SheetService:
 
         return renamed
 
+    async def delete_row_by_video_name(self, video_name: str) -> None:
+        await self._ensure_db_ready()
+        async with self._lock:
+            row = await asyncio.to_thread(self._get_row_by_video_name_sync, video_name)
+            if row is None:
+                raise FileNotFoundError("sheet row not found")
+            if row.status != "missing_file":
+                raise ValueError("only missing_file rows can be deleted")
+            await asyncio.to_thread(self._delete_row_by_video_name_sync, video_name)
+
+        self._log("info", "sheet_row_deleted", videoName=video_name)
+
     def _rename_video_with_missing_revival_sync(self, old_name: str, new_name: str) -> SheetRow | None:
         timestamp = int(time.time())
         with self._connect() as connection:
@@ -728,6 +740,20 @@ class SheetService:
                 (video_name,),
             ).fetchone()
         return found is not None
+
+    def _delete_row_by_video_name_sync(self, video_name: str) -> None:
+        with self._connect() as connection:
+            video = connection.execute(
+                "SELECT id FROM videos WHERE video_name = ?",
+                (video_name,),
+            ).fetchone()
+            if video is None:
+                raise FileNotFoundError("sheet row not found")
+
+            video_id = str(video["id"])
+            connection.execute("DELETE FROM sheets WHERE video_id = ?", (video_id,))
+            connection.execute("DELETE FROM videos WHERE id = ?", (video_id,))
+            connection.commit()
 
     def _upsert_from_storage_sync(self, video_name: str, created_by_duplicate: bool) -> SheetRow:
         timestamp = int(time.time())
