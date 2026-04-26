@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.automation.models.sheet_model import SessionState, SheetRow
+from app.automation.models.sheet_model import SessionState, SheetRow, SheetStatus
 from app.automation.models.job_model import AutomationJob
 
 
@@ -31,6 +31,10 @@ class BulkUpdateSheetRequest(BaseModel):
 class SetReadyResponse(BaseModel):
     ok: bool
     row: SheetRow
+
+
+class UpdateSheetStatusRequest(BaseModel):
+    status: SheetStatus
 
 
 class UpdateSessionRequest(BaseModel):

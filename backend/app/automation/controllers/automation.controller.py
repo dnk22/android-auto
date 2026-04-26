@@ -15,6 +15,7 @@ from app.automation.schemas.automation_schema import (
     SessionResponse,
     SetReadyResponse,
     StorageListResponse,
+    UpdateSheetStatusRequest,
     UpdateSessionRequest,
     UpdateSheetRowRequest,
 )
@@ -84,10 +85,10 @@ def build_router(sheet_service, storage_service, queue_service, watcher_service=
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    @router.post("/automation/sheet/{videoId}/ready", response_model=SetReadyResponse)
-    async def set_sheet_ready(videoId: str) -> SetReadyResponse:
+    @router.post("/automation/sheet/{videoId}/status", response_model=SetReadyResponse)
+    async def set_sheet_status(videoId: str, payload: UpdateSheetStatusRequest) -> SetReadyResponse:
         try:
-            row = await sheet_service.set_ready(videoId)
+            row = await sheet_service.set_status(videoId, payload.status)
             return SetReadyResponse(ok=True, row=row)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

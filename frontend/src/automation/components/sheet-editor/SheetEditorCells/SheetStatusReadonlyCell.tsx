@@ -1,7 +1,10 @@
 import type { JSX } from "react";
 
 import type { SheetStatus } from "../../../types/sheetStatus.types";
-import { getSheetStatusLabelVi } from "../../../utils/constants/sheetStatus.constants";
+import {
+  getSheetStatusLabelVi,
+  getSheetStatusToneClasses,
+} from "../../../utils/constants/sheetStatus.constants";
 
 interface SheetStatusReadonlyCellProps {
   status: SheetStatus;
@@ -10,8 +13,12 @@ interface SheetStatusReadonlyCellProps {
 export function SheetStatusReadonlyCell({
   status,
 }: SheetStatusReadonlyCellProps): JSX.Element {
+  const toneClasses = getSheetStatusToneClasses(status);
+
   return (
-    <div className="inline-flex min-w-[96px] items-center justify-center rounded-md border border-[var(--card-border)] bg-[var(--panel-soft)] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+    <div
+      className={`inline-flex min-w-[96px] items-center justify-center rounded-md border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide ${toneClasses}`}
+    >
       {getSheetStatusLabelVi(status)}
     </div>
   );

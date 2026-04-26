@@ -11,7 +11,7 @@ export default function DashboardSummarySection(): JSX.Element {
     isSessionAutoReady,
     deviceOptions,
     saveRowAt,
-    setReadyByVideoId,
+    setStatusByVideoId,
     deleteRowByVideoName,
   } =
     useSheetEditor();
@@ -27,7 +27,7 @@ export default function DashboardSummarySection(): JSX.Element {
         deviceOptions={deviceOptions}
         isSessionAutoReady={isSessionAutoReady}
         onSaveRow={saveRowAt}
-        onSetReadyByVideoId={setReadyByVideoId}
+        onSetStatusByVideoId={setStatusByVideoId}
         onDeleteRowByVideoName={deleteRowByVideoName}
         loading={sheetQuery.isLoading}
       />

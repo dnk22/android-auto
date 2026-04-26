@@ -364,6 +364,20 @@ class SheetService:
         self._log("info", "sheet_ready", videoId=video_id)
         return updated
 
+    async def set_status(self, video_id: str, status: str) -> SheetRow:
+        if status == "ready":
+            return await self.set_ready(video_id)
+
+        await self._ensure_db_ready()
+        async with self._lock:
+            row = await asyncio.to_thread(self._get_row_by_video_id_sync, video_id)
+            if row is None:
+                raise ValueError("row not found")
+            updated = await asyncio.to_thread(self._update_status_sync, video_id, status)
+
+        self._log("info", "sheet_status_updated", videoId=video_id, status=status)
+        return updated
+
     async def on_job_status(self, video_id: str, status: str) -> None:
         await self._ensure_db_ready()
         async with self._lock:

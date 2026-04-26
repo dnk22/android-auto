@@ -18,7 +18,7 @@ export function SheetEditorTable({
   deviceOptions,
   isSessionAutoReady,
   onSaveRow,
-  onSetReadyByVideoId,
+  onSetStatusByVideoId,
   onDeleteRowByVideoName,
   loading,
 }: SheetEditorTableProps): JSX.Element {
@@ -31,7 +31,7 @@ export function SheetEditorTable({
     deviceOptions,
     isSessionAutoReady,
     onSaveRow,
-    onSetReadyByVideoId,
+    onSetStatusByVideoId,
     onDeleteRowByVideoName,
     onOpenMergedInfo: openMergedInfoModal,
   });

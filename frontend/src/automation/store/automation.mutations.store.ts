@@ -4,12 +4,13 @@ import { toast } from "react-toastify";
 import {
   createVideoFolder,
   deleteSheetByVideoName,
-  setReady,
+  updateSheetStatus,
   updateRow,
   updateSession,
 } from "../api/automation.api";
 import type { SaveRowMutationInput } from "../../types/automation/editor.types";
 import type { CreateVideoFolderPayload } from "../types/automation.types";
+import type { SheetStatus } from "../types/sheetStatus.types";
 
 export const SHEET_QUERY_KEY = ["automation", "sheet", "editor"];
 export const SESSION_QUERY_KEY = ["automation", "session"];
@@ -43,11 +44,12 @@ export function useDeleteSheetRowByVideoNameMutation() {
   });
 }
 
-export function useSetSheetRowReadyMutation() {
+export function useSetSheetRowStatusMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (videoId: string) => setReady(videoId),
+    mutationFn: async (input: { videoId: string; status: SheetStatus }) =>
+      updateSheetStatus(input.videoId, input.status),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: SHEET_QUERY_KEY });
     },

@@ -3,6 +3,7 @@ import type {
   SheetRow,
   UpdateRowPayload,
 } from "../../automation/types/automation.types";
+import type { SheetStatus } from "../../automation/types/sheetStatus.types";
 
 export interface SheetEditorFormRow
   extends Omit<SheetRow, "deviceId" | "products" | "hashtagInline" | "meta" | "startedAt" | "finishedAt"> {
@@ -33,7 +34,7 @@ export interface SheetEditorTableProps {
   deviceOptions: string[];
   isSessionAutoReady: boolean;
   onSaveRow: (index: number) => void;
-  onSetReadyByVideoId: (videoId: string) => void;
+  onSetStatusByVideoId: (videoId: string, status: SheetStatus) => void;
   onDeleteRowByVideoName: (videoName: string) => void;
   loading: boolean;
 }

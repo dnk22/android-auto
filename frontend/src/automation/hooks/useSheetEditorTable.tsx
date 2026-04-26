@@ -19,6 +19,7 @@ import {
 } from "../components/sheet-editor/SheetEditorCells";
 import { SHEET_EDITOR_COLUMN_LABELS } from "../utils/constants/sheetEditorTable.constants";
 import type { SheetMergedInfoPayload } from "./useSheetMergedInfoModal";
+import type { SheetStatus } from "../types/sheetStatus.types";
 
 const columnHelper = createColumnHelper<SheetEditorFieldRow>();
 
@@ -29,7 +30,7 @@ interface UseSheetEditorTableParams {
   deviceOptions: string[];
   isSessionAutoReady: boolean;
   onSaveRow: (index: number) => void;
-  onSetReadyByVideoId: (videoId: string) => void;
+  onSetStatusByVideoId: (videoId: string, status: SheetStatus) => void;
   onDeleteRowByVideoName: (videoName: string) => void;
   onOpenMergedInfo: (payload: SheetMergedInfoPayload) => void;
 }
@@ -56,7 +57,7 @@ export function useSheetEditorTable({
   deviceOptions,
   isSessionAutoReady,
   onSaveRow,
-  onSetReadyByVideoId,
+  onSetStatusByVideoId,
   onDeleteRowByVideoName,
   onOpenMergedInfo,
 }: UseSheetEditorTableParams) {
@@ -141,7 +142,7 @@ export function useSheetEditorTable({
             hashtagCommon={row.original.hashtagCommon}
             isSessionAutoReady={isSessionAutoReady}
             onSaveRow={onSaveRow}
-            onSetReadyByVideoId={onSetReadyByVideoId}
+            onSetStatusByVideoId={onSetStatusByVideoId}
             onDeleteRowByVideoName={onDeleteRowByVideoName}
           />
         ),
@@ -154,7 +155,7 @@ export function useSheetEditorTable({
       onDeleteRowByVideoName,
       onOpenMergedInfo,
       onSaveRow,
-      onSetReadyByVideoId,
+      onSetStatusByVideoId,
       register,
     ],
   );

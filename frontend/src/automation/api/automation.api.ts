@@ -10,6 +10,7 @@ import type {
   UpdateSessionPayload,
   UpdateRowPayload,
 } from "../types/automation.types";
+import type { SheetStatus } from "../types/sheetStatus.types";
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || "http://localhost:8000") as string;
 
@@ -41,9 +42,10 @@ export async function updateRow(videoId: string, payload: UpdateRowPayload): Pro
   });
 }
 
-export async function setReady(videoId: string): Promise<void> {
-  await requestJson<void>(`/automation/sheet/${encodeURIComponent(videoId)}/ready`, {
+export async function updateSheetStatus(videoId: string, status: SheetStatus): Promise<void> {
+  await requestJson<void>(`/automation/sheet/${encodeURIComponent(videoId)}/status`, {
     method: "POST",
+    body: JSON.stringify({ status }),
   });
 }
 

@@ -13,7 +13,7 @@ interface SheetActionButtonCellProps {
   hashtagCommon?: string | null;
   isSessionAutoReady: boolean;
   onSaveRow: (index: number) => void;
-  onSetReadyByVideoId: (videoId: string) => void;
+  onSetStatusByVideoId: (videoId: string, status: SheetStatus) => void;
   onDeleteRowByVideoName: (videoName: string) => void;
 }
 
@@ -27,7 +27,7 @@ export function SheetActionButtonCell({
   hashtagCommon,
   isSessionAutoReady,
   onSaveRow,
-  onSetReadyByVideoId,
+  onSetStatusByVideoId,
   onDeleteRowByVideoName,
 }: SheetActionButtonCellProps): JSX.Element {
   const hasProducts =
@@ -37,16 +37,11 @@ export function SheetActionButtonCell({
   const canReady =
     status === "idle" && hasProducts && (hasHashtagCommon || hasHashtagInline);
   const showReady = !isSessionAutoReady && status !== "missing_file";
+  const showCancel = showReady && status === "ready";
   const showSave = status === "idle";
   const showDelete = status === "missing_file";
-  const showAnyButton = showSave || showDelete || showReady;
-  console.log(
-    status === "idle",
-    hasProducts,
-    hasHashtagCommon,
-    hasHashtagInline,
-    "canReady",
-  );
+  const showReadyButton = showReady && status === "idle";
+  const showAnyButton = showSave || showDelete || showReadyButton || showCancel;
 
   return (
     <>
@@ -62,7 +57,7 @@ export function SheetActionButtonCell({
             </DebouncedButton>
           ) : null}
 
-          {showReady ? (
+          {showReadyButton ? (
             <DebouncedButton
               type="button"
               disabled={!canReady}
@@ -71,10 +66,20 @@ export function SheetActionButtonCell({
                 if (!canReady) {
                   return;
                 }
-                onSetReadyByVideoId(videoId);
+                onSetStatusByVideoId(videoId, "ready");
               }}
             >
               Ready
+            </DebouncedButton>
+          ) : null}
+
+          {showCancel ? (
+            <DebouncedButton
+              type="button"
+              className="h-10 flex-1 rounded-md border border-[var(--card-border)] px-4 py-2 text-[var(--ink)]"
+              onClick={() => onSetStatusByVideoId(videoId, "idle")}
+            >
+              Cancel
             </DebouncedButton>
           ) : null}
 

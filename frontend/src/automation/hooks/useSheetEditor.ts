@@ -8,7 +8,7 @@ import {
   SHEET_QUERY_KEY,
   useDeleteSheetRowByVideoNameMutation,
   useSaveSheetRowMutation,
-  useSetSheetRowReadyMutation,
+  useSetSheetRowStatusMutation,
 } from "../store/automation.mutations.store";
 import { useAutomationStore } from "../store/automation.store";
 import { useStore } from "../../store/useStore";
@@ -17,6 +17,7 @@ import type {
   SheetEditorFormRow,
   SheetEditorFormValues,
 } from "../../types/automation/editor.types";
+import type { SheetStatus } from "../types/sheetStatus.types";
 
 const toEditorFormRow = (row: {
   id: string;
@@ -60,7 +61,7 @@ export function useSheetEditor() {
   const devices = useStore((state) => state.devices);
   const saveRowMutation = useSaveSheetRowMutation();
   const deleteRowMutation = useDeleteSheetRowByVideoNameMutation();
-  const setReadyMutation = useSetSheetRowReadyMutation();
+  const setStatusMutation = useSetSheetRowStatusMutation();
 
   const { register, control, reset, getValues } =
     useForm<SheetEditorFormValues>({
@@ -144,11 +145,11 @@ export function useSheetEditor() {
     deleteRowMutation.mutate(videoName);
   };
 
-  const setReadyByVideoId = (videoId: string): void => {
+  const setStatusByVideoId = (videoId: string, status: SheetStatus): void => {
     if (!videoId) {
       return;
     }
-    setReadyMutation.mutate(videoId);
+    setStatusMutation.mutate({ videoId, status });
   };
 
   return {
@@ -160,7 +161,7 @@ export function useSheetEditor() {
     deviceOptions,
     isSessionAutoReady: Boolean(sessionQuery.data?.autoReady),
     saveRowAt,
-    setReadyByVideoId,
+    setStatusByVideoId,
     deleteRowByVideoName,
   };
 }
