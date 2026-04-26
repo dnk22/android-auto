@@ -30,14 +30,23 @@ export function SheetActionButtonCell({
   onSetReadyByVideoId,
   onDeleteRowByVideoName,
 }: SheetActionButtonCellProps): JSX.Element {
-  const hasProducts = Array.isArray(products) && products.some((item) => item.trim().length > 0);
+  const hasProducts =
+    Array.isArray(products) && products.some((item) => item.trim().length > 0);
   const hasHashtagCommon = (hashtagCommon ?? "").trim().length > 0;
   const hasHashtagInline = (hashtagInline ?? "").trim().length > 0;
-  const canReady = status === "idle" && hasProducts && (hasHashtagCommon || hasHashtagInline);
+  const canReady =
+    status === "idle" && hasProducts && (hasHashtagCommon || hasHashtagInline);
   const showReady = !isSessionAutoReady && status !== "missing_file";
   const showSave = status === "idle";
   const showDelete = status === "missing_file";
   const showAnyButton = showSave || showDelete || showReady;
+  console.log(
+    status === "idle",
+    hasProducts,
+    hasHashtagCommon,
+    hasHashtagInline,
+    "canReady",
+  );
 
   return (
     <>
