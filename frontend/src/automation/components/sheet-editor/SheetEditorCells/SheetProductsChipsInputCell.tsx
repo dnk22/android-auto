@@ -6,11 +6,13 @@ import type { SheetEditorTableProps } from "../../../../types/automation/editor.
 interface SheetProductsChipsInputCellProps {
   rowIndex: number;
   control: SheetEditorTableProps["control"];
+  isEditable: boolean;
 }
 
 export function SheetProductsChipsInputCell({
   rowIndex,
   control,
+  isEditable,
 }: SheetProductsChipsInputCellProps): JSX.Element {
   const [draft, setDraft] = useState("");
   const { field } = useController({
@@ -26,12 +28,19 @@ export function SheetProductsChipsInputCell({
       return;
     }
 
+    if (!isEditable) {
+      return;
+    }
+
     const next = Array.from(new Set([...products, value]));
     field.onChange(next);
     setDraft("");
   };
 
   const removeProduct = (value: string) => {
+    if (!isEditable) {
+      return;
+    }
     const next = products.filter((item) => item !== value);
     field.onChange(next);
   };
@@ -48,7 +57,7 @@ export function SheetProductsChipsInputCell({
             <span
               role="button"
               tabIndex={0}
-              className="cursor-pointer text-[10px] font-semibold leading-none text-[var(--muted)]"
+              className={`text-[10px] font-semibold leading-none text-[var(--muted)] ${isEditable ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
               onClick={() => removeProduct(product)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
@@ -64,6 +73,7 @@ export function SheetProductsChipsInputCell({
 
         <input
           value={draft}
+          disabled={!isEditable}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
@@ -73,7 +83,7 @@ export function SheetProductsChipsInputCell({
           }}
           onBlur={commitDraft}
           placeholder="Thêm sản phẩm"
-          className="min-w-[120px] flex-1 bg-transparent px-1 py-1 outline-none"
+          className="min-w-[120px] flex-1 bg-transparent px-1 py-1 outline-none disabled:cursor-not-allowed disabled:opacity-60"
         />
       </div>
     </div>

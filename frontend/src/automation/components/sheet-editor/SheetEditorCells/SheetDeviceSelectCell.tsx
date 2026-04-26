@@ -8,12 +8,14 @@ interface SheetDeviceSelectCellProps {
   rowIndex: number;
   deviceOptions: string[];
   control: SheetEditorTableProps["control"];
+  isEditable: boolean;
 }
 
 export function SheetDeviceSelectCell({
   rowIndex,
   deviceOptions,
   control,
+  isEditable,
 }: SheetDeviceSelectCellProps): JSX.Element {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -30,6 +32,10 @@ export function SheetDeviceSelectCell({
   const hiddenCount = Math.max(0, selectedValues.length - visibleValues.length);
 
   const toggleValue = (value: string) => {
+    if (!isEditable) {
+      return;
+    }
+
     if (value === "all") {
       field.onChange(["all"]);
       return;
@@ -45,6 +51,10 @@ export function SheetDeviceSelectCell({
   };
 
   const removeValue = (value: string) => {
+    if (!isEditable) {
+      return;
+    }
+
     if (value === "all") {
       return;
     }
@@ -52,6 +62,12 @@ export function SheetDeviceSelectCell({
     const next = selectedValues.filter((item) => item !== "all" && item !== value);
     field.onChange(next.length === 0 ? ["all"] : next);
   };
+
+  useEffect(() => {
+    if (!isEditable) {
+      setOpen(false);
+    }
+  }, [isEditable]);
 
   useEffect(() => {
     const onClickOutside = (event: MouseEvent) => {
@@ -73,8 +89,14 @@ export function SheetDeviceSelectCell({
     <div className="relative inline-block max-w-[200px]" ref={rootRef}>
       <DebouncedButton
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className="min-h-10 w-fit max-w-[200px] rounded-md border border-[var(--card-border)] bg-[var(--panel-soft)] px-2 py-2 text-left"
+        onClick={() => {
+          if (!isEditable) {
+            return;
+          }
+          setOpen((prev) => !prev);
+        }}
+        disabled={!isEditable}
+        className="min-h-10 w-fit max-w-[200px] rounded-md border border-[var(--card-border)] bg-[var(--panel-soft)] px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
       >
         <div className="flex max-w-[190px] items-center gap-1.5 overflow-hidden">
           {visibleValues.map((value) => {
@@ -85,7 +107,7 @@ export function SheetDeviceSelectCell({
                 className="inline-flex items-center gap-1 rounded-md bg-[var(--card-border)] px-2 py-1 text-[11px] text-[var(--ink)]"
               >
                 <span className="max-w-[90px] truncate">{label}</span>
-                {value !== "all" ? (
+                {value !== "all" && isEditable ? (
                   <span
                     role="button"
                     tabIndex={0}

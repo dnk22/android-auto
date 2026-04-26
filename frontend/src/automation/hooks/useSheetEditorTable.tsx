@@ -75,33 +75,48 @@ export function useSheetEditorTable({
         id: "deviceId",
         header: SHEET_EDITOR_COLUMN_LABELS.deviceId,
         ...withColumnLayout({ width: 100, maxWidth: 200 }),
-        cell: ({ row }) => (
+        cell: ({ row }) => {
+          const isEditable = row.original.status === "idle";
+          return (
           <SheetDeviceSelectCell
             rowIndex={row.index}
             deviceOptions={deviceOptions}
             control={control}
+            isEditable={isEditable}
           />
-        ),
+        );
+        },
       }),
       columnHelper.display({
         id: "products",
         header: SHEET_EDITOR_COLUMN_LABELS.products,
         ...withColumnLayout({ width: 300, maxWidth: 350 }),
-        cell: ({ row }) => (
-          <SheetProductsChipsInputCell rowIndex={row.index} control={control} />
-        ),
+        cell: ({ row }) => {
+          const isEditable = row.original.status === "idle";
+          return (
+            <SheetProductsChipsInputCell
+              rowIndex={row.index}
+              control={control}
+              isEditable={isEditable}
+            />
+          );
+        },
       }),
       columnHelper.display({
         id: "hashtagInline",
         header: SHEET_EDITOR_COLUMN_LABELS.hashtagInline,
         ...withColumnLayout({ width: 120, maxWidth: 250 }),
-        cell: ({ row }) => (
+        cell: ({ row }) => {
+          const isEditable = row.original.status === "idle";
+          return (
           <SheetTextInputCell
             rowIndex={row.index}
             field="hashtagInline"
             register={register}
+            isEditable={isEditable}
           />
-        ),
+        );
+        },
       }),
       columnHelper.display({
         id: "status",

@@ -50,7 +50,7 @@ export function SheetActionButtonCell({
           {showSave ? (
             <DebouncedButton
               type="button"
-              className="h-10 flex-1 rounded-md bg-[var(--accent-2)] px-4 py-2 text-white"
+              className="h-10 flex-1 rounded-md bg-[var(--accent-2)] px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => onSaveRow(rowIndex)}
             >
               Save
@@ -76,7 +76,7 @@ export function SheetActionButtonCell({
           {showCancel ? (
             <DebouncedButton
               type="button"
-              className="h-10 flex-1 rounded-md border border-[var(--card-border)] px-4 py-2 text-[var(--ink)]"
+              className="h-10 flex-1 rounded-md border border-[var(--card-border)] px-4 py-2 text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => onSetStatusByVideoId(videoId, "idle")}
             >
               Cancel
@@ -86,7 +86,7 @@ export function SheetActionButtonCell({
           {showDelete ? (
             <DebouncedButton
               type="button"
-              className="h-10 flex-1 rounded-md bg-red-600 px-4 py-2 text-white"
+              className="h-10 flex-1 rounded-md bg-red-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => {
                 const confirmed = window.confirm(
                   `Xóa record cho video "${videoName}"? Hành động này không thể hoàn tác.`,
