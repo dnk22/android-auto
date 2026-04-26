@@ -387,26 +387,36 @@ class StorageService:
             )
             return video_name, candidate, created_by_duplicate
 
-    async def delete_file(self, video_name: str) -> None:
+    async def delete_file(
+        self,
+        video_name: str,
+        *,
+        skip_update_sheet_status: bool = False,
+    ) -> None:
         if self._sheet_service is None:
             raise RuntimeError("sheet service is not bound")
 
-        await self._sheet_service.assert_video_idle(video_name)
+        if not skip_update_sheet_status:
+            await self._sheet_service.assert_video_idle(video_name)
 
         target_dir = await self.get_active_video_folder_path()
         target = target_dir / video_name
-        if not await asyncio.to_thread(target.exists):
+        exists = await asyncio.to_thread(target.exists)
+        if not exists and not skip_update_sheet_status:
             raise FileNotFoundError("file not found")
 
-        await asyncio.to_thread(target.unlink)
-        row = await self._sheet_service.mark_file_removed(video_name)
-        await self._emit_event(
-            "storage_row_deleted",
-            {
-                "videoName": video_name,
-                "row": row.model_dump() if row is not None else None,
-            },
-        )
+        if exists:
+            await asyncio.to_thread(target.unlink)
+
+        if not skip_update_sheet_status:
+            row = await self._sheet_service.mark_file_removed(video_name)
+            await self._emit_event(
+                "storage_row_deleted",
+                {
+                    "videoName": video_name,
+                    "row": row.model_dump() if row is not None else None,
+                },
+            )
         self._log("info", "storage_deleted", videoName=video_name)
 
     async def open_video_folder(self) -> str:

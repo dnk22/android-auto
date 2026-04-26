@@ -32,7 +32,9 @@ export interface SheetEditorTableProps {
   register: UseFormRegister<SheetEditorFormValues>;
   control: Control<SheetEditorFormValues>;
   deviceOptions: string[];
+  isWatching: boolean;
   isSessionAutoReady: boolean;
+  dirtyRowIndexes: Set<number>;
   onSaveRow: (index: number) => void;
   onSetStatusByVideoId: (videoId: string, status: SheetStatus) => void;
   onDeleteRowByVideoName: (videoName: string) => void;

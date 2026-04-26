@@ -7,6 +7,7 @@ import {
   SESSION_QUERY_KEY,
   SHEET_QUERY_KEY,
   useDeleteSheetRowByVideoNameMutation,
+  useDeleteStorageVideoMutation,
   useSaveSheetRowMutation,
   useSetSheetRowStatusMutation,
 } from "../store/automation.mutations.store";
@@ -61,9 +62,10 @@ export function useSheetEditor() {
   const devices = useStore((state) => state.devices);
   const saveRowMutation = useSaveSheetRowMutation();
   const deleteRowMutation = useDeleteSheetRowByVideoNameMutation();
+  const deleteStorageVideoMutation = useDeleteStorageVideoMutation();
   const setStatusMutation = useSetSheetRowStatusMutation();
 
-  const { register, control, reset, getValues } =
+  const { register, control, reset, getValues, formState } =
     useForm<SheetEditorFormValues>({
       defaultValues: {
         rows: [],
@@ -130,19 +132,12 @@ export function useSheetEditor() {
         products: productCsv,
         hashtagInline: current.hashtagInline || "",
         status: current.status,
-        // meta: current.meta || "",
-        // version: Number(current.version || row.version),
+        meta: current.meta || "",
+        version: Number(current.version || row.version),
         startedAt: toNumberOrNull(current.startedAt),
         finishedAt: toNumberOrNull(current.finishedAt),
       },
     });
-  };
-
-  const deleteRowByVideoName = (videoName: string): void => {
-    if (!videoName) {
-      return;
-    }
-    deleteRowMutation.mutate(videoName);
   };
 
   const setStatusByVideoId = (videoId: string, status: SheetStatus): void => {
@@ -152,6 +147,42 @@ export function useSheetEditor() {
     setStatusMutation.mutate({ videoId, status });
   };
 
+  const deleteRowAndVideoByVideoName = (videoName: string): void => {
+    if (!videoName) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        await deleteRowMutation.mutateAsync(videoName);
+        await deleteStorageVideoMutation.mutateAsync({
+          videoName,
+          skipUpdateSheetStatus: true,
+        });
+      } catch {
+        return;
+      }
+    })();
+  };
+
+  const dirtyRowIndexes = useMemo(() => {
+    const rowsDirty = formState.dirtyFields?.rows;
+    if (!Array.isArray(rowsDirty)) {
+      return new Set<number>();
+    }
+
+    const dirty = new Set<number>();
+    rowsDirty.forEach((row, index) => {
+      if (!row) {
+        return;
+      }
+      if (typeof row !== "object" || Object.keys(row).length > 0) {
+        dirty.add(index);
+      }
+    });
+    return dirty;
+  }, [formState.dirtyFields?.rows]);
+
   return {
     register,
     control,
@@ -159,9 +190,11 @@ export function useSheetEditor() {
     sheetQuery,
     sessionQuery,
     deviceOptions,
+    isWatching: sessionQuery.data?.status === "watching",
     isSessionAutoReady: Boolean(sessionQuery.data?.autoReady),
+    dirtyRowIndexes,
     saveRowAt,
     setStatusByVideoId,
-    deleteRowByVideoName,
+    deleteRowByVideoName: deleteRowAndVideoByVideoName,
   };
 }

@@ -28,7 +28,9 @@ interface UseSheetEditorTableParams {
   register: SheetEditorTableProps["register"];
   control: SheetEditorTableProps["control"];
   deviceOptions: string[];
+  isWatching: boolean;
   isSessionAutoReady: boolean;
+  dirtyRowIndexes: Set<number>;
   onSaveRow: (index: number) => void;
   onSetStatusByVideoId: (videoId: string, status: SheetStatus) => void;
   onDeleteRowByVideoName: (videoName: string) => void;
@@ -55,7 +57,9 @@ export function useSheetEditorTable({
   register,
   control,
   deviceOptions,
+  isWatching,
   isSessionAutoReady,
+  dirtyRowIndexes,
   onSaveRow,
   onSetStatusByVideoId,
   onDeleteRowByVideoName,
@@ -78,13 +82,13 @@ export function useSheetEditorTable({
         cell: ({ row }) => {
           const isEditable = row.original.status === "idle";
           return (
-          <SheetDeviceSelectCell
-            rowIndex={row.index}
-            deviceOptions={deviceOptions}
-            control={control}
-            isEditable={isEditable}
-          />
-        );
+            <SheetDeviceSelectCell
+              rowIndex={row.index}
+              deviceOptions={deviceOptions}
+              control={control}
+              isEditable={isEditable}
+            />
+          );
         },
       }),
       columnHelper.display({
@@ -109,13 +113,13 @@ export function useSheetEditorTable({
         cell: ({ row }) => {
           const isEditable = row.original.status === "idle";
           return (
-          <SheetTextInputCell
-            rowIndex={row.index}
-            field="hashtagInline"
-            register={register}
-            isEditable={isEditable}
-          />
-        );
+            <SheetTextInputCell
+              rowIndex={row.index}
+              field="hashtagInline"
+              register={register}
+              isEditable={isEditable}
+            />
+          );
         },
       }),
       columnHelper.display({
@@ -155,6 +159,8 @@ export function useSheetEditorTable({
             products={row.original.products}
             hashtagInline={row.original.hashtagInline}
             hashtagCommon={row.original.hashtagCommon}
+            isDirty={dirtyRowIndexes.has(row.index)}
+            isWatching={isWatching}
             isSessionAutoReady={isSessionAutoReady}
             onSaveRow={onSaveRow}
             onSetStatusByVideoId={onSetStatusByVideoId}
@@ -166,7 +172,9 @@ export function useSheetEditorTable({
     [
       control,
       deviceOptions,
+      isWatching,
       isSessionAutoReady,
+      dirtyRowIndexes,
       onDeleteRowByVideoName,
       onOpenMergedInfo,
       onSaveRow,

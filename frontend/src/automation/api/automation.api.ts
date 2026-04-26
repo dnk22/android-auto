@@ -96,8 +96,14 @@ export async function renameFile(payload: RenameFilePayload): Promise<void> {
   });
 }
 
-export async function deleteFile(videoName: string): Promise<void> {
-  await requestJson<void>(`/automation/storage/${encodeURIComponent(videoName)}`, {
+export async function deleteFile(
+  videoName: string,
+  options?: {
+    skipUpdateSheetStatus?: boolean;
+  },
+): Promise<void> {
+  const query = options?.skipUpdateSheetStatus ? "?skipUpdateSheetStatus=true" : "";
+  await requestJson<void>(`/automation/storage/${encodeURIComponent(videoName)}${query}`, {
     method: "DELETE",
   });
 }

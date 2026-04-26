@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 
 from app.automation.models.sheet_model import SheetRow
 from app.automation.schemas.automation_schema import (
@@ -200,9 +200,15 @@ def build_router(sheet_service, storage_service, queue_service, watcher_service=
         )
 
     @router.delete("/automation/storage/{videoName}")
-    async def delete_storage_file(videoName: str):
+    async def delete_storage_file(
+        videoName: str,
+        skipUpdateSheetStatus: bool = Query(default=False),
+    ):
         try:
-            await storage_service.delete_file(videoName)
+            await storage_service.delete_file(
+                videoName,
+                skip_update_sheet_status=skipUpdateSheetStatus,
+            )
             return {"ok": True}
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc

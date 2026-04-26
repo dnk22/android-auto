@@ -8,7 +8,9 @@ export default function DashboardSummarySection(): JSX.Element {
     control,
     fields,
     sheetQuery,
+    isWatching,
     isSessionAutoReady,
+    dirtyRowIndexes,
     deviceOptions,
     saveRowAt,
     setStatusByVideoId,
@@ -25,7 +27,9 @@ export default function DashboardSummarySection(): JSX.Element {
         register={register}
         control={control}
         deviceOptions={deviceOptions}
+        isWatching={isWatching}
         isSessionAutoReady={isSessionAutoReady}
+        dirtyRowIndexes={dirtyRowIndexes}
         onSaveRow={saveRowAt}
         onSetStatusByVideoId={setStatusByVideoId}
         onDeleteRowByVideoName={deleteRowByVideoName}

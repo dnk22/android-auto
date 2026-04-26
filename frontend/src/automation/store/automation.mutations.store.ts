@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 
 import {
   createVideoFolder,
+  deleteFile,
   deleteSheetByVideoName,
   updateSheetStatus,
   updateRow,
@@ -14,6 +15,7 @@ import type { SheetStatus } from "../types/sheetStatus.types";
 
 export const SHEET_QUERY_KEY = ["automation", "sheet", "editor"];
 export const SESSION_QUERY_KEY = ["automation", "session"];
+export const STORAGE_QUERY_KEY = ["automation", "storage"];
 
 export function useSaveSheetRowMutation() {
   const queryClient = useQueryClient();
@@ -40,6 +42,27 @@ export function useDeleteSheetRowByVideoNameMutation() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Delete row failed");
+    },
+  });
+}
+
+export function useDeleteStorageVideoMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      videoName: string;
+      skipUpdateSheetStatus?: boolean;
+    }) =>
+      deleteFile(input.videoName, {
+        skipUpdateSheetStatus: input.skipUpdateSheetStatus,
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: STORAGE_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: SHEET_QUERY_KEY });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Delete video failed");
     },
   });
 }

@@ -234,8 +234,8 @@ class SheetService:
             row = await asyncio.to_thread(self._get_row_by_video_name_sync, video_name)
             if row is None:
                 raise FileNotFoundError("sheet row not found")
-            if row.status != "missing_file":
-                raise ValueError("only missing_file rows can be deleted")
+            if row.status not in {"missing_file", "done", "stopped"}:
+                raise ValueError("only missing_file/done/stopped rows can be deleted")
             await asyncio.to_thread(self._delete_row_by_video_name_sync, video_name)
 
         self._log("info", "sheet_row_deleted", videoName=video_name)
@@ -367,6 +367,31 @@ class SheetService:
     async def set_status(self, video_id: str, status: str) -> SheetRow:
         if status == "ready":
             return await self.set_ready(video_id)
+        if status == "queued":
+            await self._ensure_db_ready()
+            if self._storage_service is None:
+                raise RuntimeError("storage service is not bound")
+
+            async with self._lock:
+                row = await asyncio.to_thread(self._get_row_by_video_id_sync, video_id)
+                if row is None:
+                    raise ValueError("row not found")
+                if row.status == "missing_file":
+                    raise ValueError("missing file")
+
+                exists = await self._storage_service.has_file(row.videoName)
+                ok, reason = validate_row(row, exists)
+                if not ok:
+                    raise ValueError(reason or "row is invalid")
+
+                updated = await asyncio.to_thread(
+                    self._update_status_sync,
+                    video_id,
+                    "queued",
+                )
+
+            self._log("info", "sheet_status_updated", videoId=video_id, status=status)
+            return updated
 
         await self._ensure_db_ready()
         async with self._lock:
