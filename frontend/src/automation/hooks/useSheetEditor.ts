@@ -110,10 +110,10 @@ export function useSheetEditor() {
     const selectedDeviceIds = Array.isArray(current.deviceId)
       ? current.deviceId
       : [];
-    const shouldUseAllDevices =
+    const hasAllSelected =
       selectedDeviceIds.length === 0 || selectedDeviceIds.includes("all");
-    const resolvedDeviceIds = shouldUseAllDevices
-      ? deviceOptions
+    const resolvedDeviceIds = hasAllSelected
+      ? ["all"]
       : selectedDeviceIds.filter((value) => value && value !== "all");
     const deviceIdCsv = Array.from(new Set(resolvedDeviceIds)).join(",");
     const productCsv = Array.from(
