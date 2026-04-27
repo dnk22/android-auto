@@ -11,7 +11,9 @@ from uuid import uuid4
 
 from app.automation.models.job_model import AutomationJob
 from app.automation.models.sheet_model import SessionState, SheetRow, SheetState
+from app.automation.models.job_execution_model import JobExecution
 from app.automation.schemas.automation_schema import UpdateSheetRowRequest
+from app.automation.constants.automation_constants import SheetStatus
 from app.automation.utils.validator import validate_row
 
 
@@ -22,9 +24,11 @@ class StorageServiceProtocol(Protocol):
 
 
 class JobQueueServiceProtocol(Protocol):
-    async def enqueue(self, video_id: str, device_id: str) -> AutomationJob: ...
-
     async def stop_job_by_video_id(self, video_id: str) -> AutomationJob | None: ...
+
+
+class ExecutionServiceProtocol(Protocol):
+    def create_execution_from_ready_job(self, video_id: str) -> tuple[SheetRow | None, JobExecution | None]: ...
 
 
 class SheetService:
@@ -46,6 +50,7 @@ class SheetService:
 
         self._storage_service: StorageServiceProtocol | None = None
         self._queue_service: JobQueueServiceProtocol | None = None
+        self._execution_service: ExecutionServiceProtocol | None = None
 
     async def startup(self) -> None:
         await self._ensure_db_ready()
@@ -79,9 +84,11 @@ class SheetService:
         *,
         storage_service: StorageServiceProtocol,
         queue_service: JobQueueServiceProtocol,
+        execution_service: ExecutionServiceProtocol,
     ) -> None:
         self._storage_service = storage_service
         self._queue_service = queue_service
+        self._execution_service = execution_service
 
     async def _emit_row_updated_event(self, row: SheetRow) -> None:
         if self._storage_service is None:
@@ -352,7 +359,7 @@ class SheetService:
             row = await asyncio.to_thread(self._get_row_by_video_id_sync, video_id)
             if row is None:
                 raise ValueError("row not found")
-            if row.status == "running":
+            if row.status == SheetStatus.RUNNING:
                 raise ValueError("row is running")
 
             exists = await self._storage_service.has_file(row.videoName)
@@ -360,52 +367,41 @@ class SheetService:
             if not ok:
                 raise ValueError(reason or "row is invalid")
 
-            updated = await asyncio.to_thread(self._update_status_sync, video_id, "ready")
-
-            nonce = self._debounce_nonce.get(video_id, 0) + 1
-            self._debounce_nonce[video_id] = nonce
-
-            old_task = self._debounce_tasks.get(video_id)
-            if old_task and not old_task.done():
-                old_task.cancel()
-
-            self._debounce_tasks[video_id] = asyncio.create_task(
-                self._ready_debounce(video_id, nonce)
-            )
+            updated = await asyncio.to_thread(self._update_status_sync, video_id, SheetStatus.READY)
+            self._schedule_ready_debounce_locked(video_id)
 
         self._log("info", "sheet_ready", videoId=video_id)
         await self._emit_row_updated_event(updated)
         return updated
 
     async def set_status(self, video_id: str, status: str) -> SheetRow:
-        if status == "ready":
+        if status == SheetStatus.READY:
             return await self.set_ready(video_id)
-        if status == "queued":
+        if status == SheetStatus.QUEUED:
             await self._ensure_db_ready()
-            if self._storage_service is None:
-                raise RuntimeError("storage service is not bound")
-
             async with self._lock:
                 row = await asyncio.to_thread(self._get_row_by_video_id_sync, video_id)
                 if row is None:
                     raise ValueError("row not found")
-                if row.status == "missing_file":
-                    raise ValueError("missing file")
-
-                exists = await self._storage_service.has_file(row.videoName)
+                if row.status != SheetStatus.READY:
+                    raise ValueError("only ready rows can be queued")
+                exists = await self._storage_service.has_file(row.videoName) if self._storage_service else False
                 ok, reason = validate_row(row, exists)
                 if not ok:
                     raise ValueError(reason or "row is invalid")
-
-                updated = await asyncio.to_thread(
-                    self._update_status_sync,
-                    video_id,
-                    "queued",
-                )
+                updated, _ = await self._create_execution_from_ready_locked(video_id)
+                if updated is None:
+                    raise ValueError("failed to create execution for queued status")
 
             self._log("info", "sheet_status_updated", videoId=video_id, status=status)
             await self._emit_row_updated_event(updated)
             return updated
+        if status == SheetStatus.STOPPED and self._queue_service is not None:
+            stopped = await self._queue_service.stop_job_by_video_id(video_id)
+            if stopped is not None:
+                row = await self.get_row(video_id)
+                if row is not None:
+                    return row
 
         await self._ensure_db_ready()
         async with self._lock:
@@ -421,8 +417,7 @@ class SheetService:
     async def on_job_status(self, video_id: str, status: str) -> None:
         await self._ensure_db_ready()
         async with self._lock:
-            mapped = "idle" if status == "stopped" else status
-            updated = await asyncio.to_thread(self._update_status_sync, video_id, mapped)
+            updated = await asyncio.to_thread(self._update_status_sync, video_id, status)
         await self._emit_row_updated_event(updated)
 
     async def cancel(self) -> None:
@@ -447,11 +442,32 @@ class SheetService:
         except ValueError:
             return
 
-    async def _ready_debounce(self, video_id: str, nonce: int) -> None:
+    def _schedule_ready_debounce_locked(self, video_id: str, delay_sec: float | None = None) -> None:
+        nonce = self._debounce_nonce.get(video_id, 0) + 1
+        self._debounce_nonce[video_id] = nonce
+
+        old_task = self._debounce_tasks.get(video_id)
+        if old_task and not old_task.done():
+            old_task.cancel()
+
+        self._debounce_tasks[video_id] = asyncio.create_task(
+            self._ready_debounce(video_id, nonce, delay_sec),
+        )
+
+    async def _create_execution_from_ready_locked(
+        self,
+        video_id: str,
+    ) -> tuple[SheetRow | None, JobExecution | None]:
+        if self._execution_service is None:
+            raise RuntimeError("execution service is not bound")
+        return await asyncio.to_thread(
+            self._execution_service.create_execution_from_ready_job,
+            video_id,
+        )
+
+    async def _ready_debounce(self, video_id: str, nonce: int, delay_sec: float | None = None) -> None:
         try:
-            await asyncio.sleep(self._ready_debounce_sec)
-            if self._queue_service is None:
-                return
+            await asyncio.sleep(self._ready_debounce_sec if delay_sec is None else max(delay_sec, 0.0))
 
             async with self._lock:
                 if self._debounce_nonce.get(video_id) != nonce:
@@ -461,34 +477,59 @@ class SheetService:
                     return
 
                 row = await asyncio.to_thread(self._get_row_by_video_id_sync, video_id)
-                if row is None or row.status != "ready":
+                if row is None or row.status != SheetStatus.READY:
                     return
-                device_id = row.deviceId
-
-            job = await self._queue_service.enqueue(video_id, device_id)
-
-            async with self._lock:
-                await asyncio.to_thread(self._set_meta_job_id_sync, video_id, job.jobId)
-                updated = await asyncio.to_thread(self._update_status_sync, video_id, "queued")
-
-            self._log("info", "job_enqueued", videoId=video_id, deviceId=device_id)
+                if self._storage_service is None:
+                    return
+                exists = await self._storage_service.has_file(row.videoName)
+                ok, _reason = validate_row(row, exists)
+                if not ok:
+                    return
+                updated, execution = await self._create_execution_from_ready_locked(video_id)
+            if updated is None or execution is None:
+                return
+            self._log(
+                "info",
+                "sheet_row_queued",
+                videoId=video_id,
+                executionId=execution.id,
+            )
             await self._emit_row_updated_event(updated)
         except asyncio.CancelledError:
             return
 
     async def _enqueue_ready_jobs(self) -> None:
-        if self._queue_service is None:
-            return
-
+        now = int(time.time())
         async with self._lock:
-            ready_rows = await asyncio.to_thread(self._list_rows_by_status_sync, "ready")
+            ready_rows = await asyncio.to_thread(self._list_rows_by_status_sync, SheetStatus.READY)
 
         for row in ready_rows:
-            job = await self._queue_service.enqueue(row.videoId, row.deviceId)
+            updated_row: SheetRow | None = None
+            created_execution: JobExecution | None = None
             async with self._lock:
-                await asyncio.to_thread(self._set_meta_job_id_sync, row.videoId, job.jobId)
-                updated = await asyncio.to_thread(self._update_status_sync, row.videoId, "queued")
-            await self._emit_row_updated_event(updated)
+                if self._session.status != "watching":
+                    return
+                elapsed = max(0, now - int(row.updatedAt))
+                if elapsed >= self._ready_debounce_sec:
+                    if self._storage_service is None:
+                        continue
+                    exists = await self._storage_service.has_file(row.videoName)
+                    ok, _reason = validate_row(row, exists)
+                    if not ok:
+                        continue
+                    updated_row, created_execution = await self._create_execution_from_ready_locked(row.videoId)
+                else:
+                    remaining = self._ready_debounce_sec - elapsed
+                    self._schedule_ready_debounce_locked(row.videoId, remaining)
+            if updated_row is not None and created_execution is not None:
+                self._log(
+                    "info",
+                    "sheet_row_queued",
+                    videoId=row.videoId,
+                    executionId=created_execution.id,
+                )
+                await self._emit_row_updated_event(updated_row)
+
 
     async def _stop_active_jobs_and_reset(self) -> None:
         if self._queue_service is not None:
@@ -568,6 +609,58 @@ class SheetService:
                     "created_at": "INTEGER NOT NULL DEFAULT 0",
                     "updated_at": "INTEGER NOT NULL DEFAULT 0",
                 },
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS job_executions (
+                    id TEXT PRIMARY KEY,
+                    job_id TEXT NOT NULL,
+                    video_id TEXT NOT NULL,
+                    video_name TEXT,
+                    scenario_name TEXT NOT NULL DEFAULT 'upload_shopee_video',
+                    requested_device TEXT,
+                    assigned_device TEXT,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    attempt_no INTEGER NOT NULL DEFAULT 1,
+                    priority INTEGER NOT NULL DEFAULT 0,
+                    started_at INTEGER,
+                    finished_at INTEGER,
+                    error_message TEXT,
+                    result_meta TEXT,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(job_id, attempt_no)
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_job_executions_status_created_at
+                ON job_executions(status, created_at)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_job_executions_job_id
+                ON job_executions(job_id)
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS device_locks (
+                    device_id TEXT PRIMARY KEY,
+                    execution_id TEXT NOT NULL,
+                    locked_at INTEGER NOT NULL,
+                    locked_by TEXT,
+                    created_at INTEGER NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_device_locks_execution_id
+                ON device_locks(execution_id)
+                """
             )
 
             legacy_jobs_exists = connection.execute(

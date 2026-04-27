@@ -4,18 +4,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.automation.constants.automation_constants import SHEET_ITEM_STATUSES
 
-SheetStatus = Literal[
-    "idle",
-    "queued",
-    "ready",
-    "running",
-    "paused",
-    "stopped",
-    "done",
-    "error",
-    "missing_file",
-]
+SheetStatus = Literal[*SHEET_ITEM_STATUSES]
 
 class SheetRow(BaseModel):
     id: str

@@ -32,6 +32,14 @@ _constants_mod = _load_module(
 )
 _sheet_model_mod = _load_module("models/sheet.model.py", "app.automation.models.sheet_model")
 _job_model_mod = _load_module("models/job.model.py", "app.automation.models.job_model")
+_job_execution_model_mod = _load_module(
+    "models/job_execution.model.py",
+    "app.automation.models.job_execution_model",
+)
+_runtime_job_model_mod = _load_module(
+    "models/runtime_job.model.py",
+    "app.automation.models.runtime_job_model",
+)
 _schemas_mod = _load_module(
     "schemas/automation.schema.py",
     "app.automation.schemas.automation_schema",
@@ -45,6 +53,14 @@ _sheet_service_mod = _load_module(
     "services/sheet.service.py",
     "app.automation.services.sheet_service",
 )
+_execution_service_mod = _load_module(
+    "services/execution.service.py",
+    "app.automation.services.execution_service",
+)
+_device_lock_service_mod = _load_module(
+    "services/device_lock.service.py",
+    "app.automation.services.device_lock_service",
+)
 _storage_service_mod = _load_module(
     "services/storage.service.py",
     "app.automation.services.storage_service",
@@ -52,6 +68,10 @@ _storage_service_mod = _load_module(
 _job_queue_mod = _load_module(
     "services/job_queue.service.py",
     "app.automation.services.job_queue_service",
+)
+_execution_dispatcher_mod = _load_module(
+    "services/execution_dispatcher.service.py",
+    "app.automation.services.execution_dispatcher_service",
 )
 _watcher_mod = _load_module("utils/file_watcher.py", "app.automation.utils.file_watcher")
 _controller_mod = _load_module(
@@ -111,6 +131,13 @@ class AutomationRuntime:
             ready_debounce_sec=self._settings.ready_debounce_sec,
             storage_path=self._settings.storage_dir,
         )
+        self._execution_service = _execution_service_mod.ExecutionService(
+            db_path=self._settings.storage_dir / "automation.db",
+            logger=self._logger,
+        )
+        self._device_lock_service = _device_lock_service_mod.DeviceLockService(
+            db_path=self._settings.storage_dir / "automation.db",
+        )
         self._storage_service = _storage_service_mod.StorageService(
             settings=self._settings,
             logger=self._logger,
@@ -123,12 +150,23 @@ class AutomationRuntime:
             sheet_service=self._sheet_service,
             storage_service=self._storage_service,
             shopee_bot=self._shopee_bot,
+            execution_service=self._execution_service,
+            device_lock_service=self._device_lock_service,
             logger=self._logger,
+        )
+        self._execution_dispatcher = _execution_dispatcher_mod.ExecutionDispatcherService(
+            execution_service=self._execution_service,
+            sheet_service=self._sheet_service,
+            device_lock_service=self._device_lock_service,
+            queue_service=self._job_queue,
+            logger=self._logger,
+            poll_interval_sec=self._settings.dispatcher_poll_interval_sec,
         )
 
         self._sheet_service.bind_dependencies(
             storage_service=self._storage_service,
             queue_service=self._job_queue,
+            execution_service=self._execution_service,
         )
         self._storage_service.bind_sheet_service(self._sheet_service)
 
@@ -159,6 +197,7 @@ class AutomationRuntime:
         await self._storage_service.ensure_storage_dir()
         await self._storage_service.sync_sheet_from_storage()
         await self._job_queue.start()
+        await self._execution_dispatcher.start()
         await self._watcher.start()
         watch_path_raw = await self._storage_service.get_video_folder_path()
         watch_path = Path(watch_path_raw) if watch_path_raw else None
@@ -170,6 +209,7 @@ class AutomationRuntime:
     async def shutdown(self) -> None:
         self._ws_log_handler.set_loop(None)
         await self._watcher.stop()
+        await self._execution_dispatcher.stop()
         await self._job_queue.stop()
         await self._sheet_service.cancel()
 
