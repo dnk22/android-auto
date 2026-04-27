@@ -142,7 +142,7 @@ export function SheetActionButtonCell({
                 if (!canRun) {
                   return;
                 }
-                onSetStatusByVideoId(videoId, "ready");
+                onSetStatusByVideoId(videoId, "idle");
               }}
             >
               Retry
