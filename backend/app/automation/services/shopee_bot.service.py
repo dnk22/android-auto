@@ -10,6 +10,8 @@ import uiautomator2 as u2
 
 
 class ShopeeBot:
+    _SHOPEE_PACKAGE = "com.shopee.vn"
+
     def __init__(self, *, logger: logging.Logger, timeout_sec: float) -> None:
         self._logger = logger
         self._timeout_sec = timeout_sec
@@ -54,8 +56,37 @@ class ShopeeBot:
             products=products,
             hashtag=hashtag,
         )
-        await asyncio.sleep(2)
-        self._log("info", "run_finished", deviceId=device_id)
+        connection = self._connections[device_id]
+
+        try:
+            await asyncio.to_thread(connection.app_start, self._SHOPEE_PACKAGE, stop=True)
+            self._log("info", "shopee_opened", deviceId=device_id, package=self._SHOPEE_PACKAGE)
+            await asyncio.sleep(1.5)
+
+            width, height = await asyncio.to_thread(connection.window_size)
+            center_x = int(width * 0.5)
+            start_y = int(height * 0.78)
+            end_y = int(height * 0.28)
+
+            for round_index in range(2):
+                # Swipe up
+                await asyncio.to_thread(connection.swipe, center_x, start_y, center_x, end_y, 0.2)
+                await asyncio.sleep(0.5)
+
+                # Swipe down
+                await asyncio.to_thread(connection.swipe, center_x, end_y, center_x, start_y, 0.2)
+                await asyncio.sleep(0.5)
+
+                self._log("info", "shopee_scroll_round", deviceId=device_id, round=round_index + 1)
+
+            await asyncio.to_thread(connection.press, "home")
+            await asyncio.sleep(0.4)
+            self._log("info", "returned_home", deviceId=device_id)
+        except Exception as exc:  # noqa: BLE001
+            self._log("error", "run_failed", deviceId=device_id, error=str(exc))
+            raise
+        finally:
+            self._log("info", "run_finished", deviceId=device_id)
 
     async def stop_device(self, device_id: str) -> None:
         connection = self._connections.get(device_id)

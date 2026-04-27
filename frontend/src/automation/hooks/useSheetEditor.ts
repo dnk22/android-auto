@@ -146,10 +146,6 @@ export function useSheetEditor() {
         products: productCsv,
         hashtagInline: current.hashtagInline || "",
         status: current.status,
-        meta: current.meta || "",
-        version: Number(current.version || row.version),
-        startedAt: toNumberOrNull(current.startedAt),
-        finishedAt: toNumberOrNull(current.finishedAt),
       },
     });
   };
