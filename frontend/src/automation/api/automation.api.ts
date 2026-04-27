@@ -14,6 +14,17 @@ import type { SheetStatus } from "../types/sheetStatus.types";
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || "http://localhost:8000") as string;
 
+export function getAutomationEventsWsUrl(): string {
+  const base =
+    typeof window !== "undefined" ? window.location.origin : "http://localhost:8000";
+  const url = new URL(BACKEND_URL, base);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.pathname = "/ws/automation/events";
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BACKEND_URL}${path}`, {
     headers: {

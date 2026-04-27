@@ -43,10 +43,10 @@ export function SheetActionButtonCell({
     hasProducts && (hasHashtagCommon || hasHashtagInline) && hasValidVideo;
 
   const showSave = status === "idle";
-  const showReady = status === "idle" && !isWatching && !isSessionAutoReady;
+  const showReady = status === "idle" && isWatching && !isSessionAutoReady;
   const showDelete =
     status === "missing_file" || status === "done" || status === "stopped";
-  const showCancel = status === "queued" || status === "ready";
+  const showCancel = status === "ready";
   const showPause = status === "running";
   const showStop = status === "running" || status === "paused";
   const showResume = status === "paused";

@@ -8,10 +8,15 @@ import {
   openStorageFolder,
   renameFile,
 } from "../api/automation.api";
+import {
+  SHEET_QUERY_KEY,
+  STORAGE_QUERY_KEY,
+} from "../store/automation.mutations.store";
 import { useAutomationStore } from "../store/automation.store";
 import type {
   DuplicateFileEvent,
   RenameFilePayload,
+  SheetRowUpdatedEvent,
   SheetRow,
   StorageListResponse,
   StorageRowDeletedEvent,
@@ -19,9 +24,6 @@ import type {
   StorageRowUpsertedEvent,
   StorageWsEvent,
 } from "../types/automation.types";
-
-const STORAGE_QUERY_KEY = ["automation", "storage"] as const;
-const SHEET_QUERY_KEY = ["automation", "sheet"] as const;
 
 function isDuplicateFileEvent(event: StorageWsEvent): event is DuplicateFileEvent {
   if (event.event !== "duplicate_file_detected") {
@@ -44,10 +46,18 @@ function isStorageRowDeletedEvent(event: StorageWsEvent): event is StorageRowDel
   return event.event === "storage_row_deleted";
 }
 
+function isSheetRowUpdatedEvent(event: StorageWsEvent): event is SheetRowUpdatedEvent {
+  return event.event === "sheet_row_updated";
+}
+
 function upsertRow(rows: SheetRow[], nextRow: SheetRow): SheetRow[] {
   const existingIndex = rows.findIndex((row) => row.videoId === nextRow.videoId);
   if (existingIndex === -1) {
     return [nextRow, ...rows];
+  }
+  const existing = rows[existingIndex];
+  if (existing && existing.version > nextRow.version) {
+    return rows;
   }
 
   const copied = [...rows];
@@ -77,15 +87,12 @@ function applyStorageEventToCache(
         };
       },
     );
-    queryClient.setQueriesData(
-      { queryKey: SHEET_QUERY_KEY },
-      (current) => {
-        if (!Array.isArray(current)) {
-          return current;
-        }
-        return upsertRow(current as SheetRow[], nextRow);
-      },
-    );
+    queryClient.setQueryData<SheetRow[] | undefined>(SHEET_QUERY_KEY, (current) => {
+      if (!Array.isArray(current)) {
+        return current;
+      }
+      return upsertRow(current, nextRow);
+    });
     return true;
   }
 
@@ -115,19 +122,16 @@ function applyStorageEventToCache(
       },
     );
 
-    queryClient.setQueriesData(
-      { queryKey: SHEET_QUERY_KEY },
-      (current) => {
-        if (!Array.isArray(current)) {
-          return current;
-        }
-        const base = removeByVideoName(current as SheetRow[], oldName);
-        if (!maybeRow) {
-          return base;
-        }
-        return upsertRow(base, maybeRow);
-      },
-    );
+    queryClient.setQueryData<SheetRow[] | undefined>(SHEET_QUERY_KEY, (current) => {
+      if (!Array.isArray(current)) {
+        return current;
+      }
+      const base = removeByVideoName(current, oldName);
+      if (!maybeRow) {
+        return base;
+      }
+      return upsertRow(base, maybeRow);
+    });
     return true;
   }
 
@@ -148,19 +152,41 @@ function applyStorageEventToCache(
       },
     );
 
-    queryClient.setQueriesData(
-      { queryKey: SHEET_QUERY_KEY },
+    queryClient.setQueryData<SheetRow[] | undefined>(SHEET_QUERY_KEY, (current) => {
+      if (!Array.isArray(current)) {
+        return current;
+      }
+      const base = removeByVideoName(current, videoName);
+      if (!maybeRow) {
+        return base;
+      }
+      return upsertRow(base, maybeRow);
+    });
+    return true;
+  }
+
+  if (isSheetRowUpdatedEvent(event)) {
+    const nextRow = event.payload.row;
+
+    queryClient.setQueryData<StorageListResponse | undefined>(
+      STORAGE_QUERY_KEY,
       (current) => {
-        if (!Array.isArray(current)) {
+        if (!current) {
           return current;
         }
-        const base = removeByVideoName(current as SheetRow[], videoName);
-        if (!maybeRow) {
-          return base;
-        }
-        return upsertRow(base, maybeRow);
+        return {
+          ...current,
+          rows: upsertRow(current.rows, nextRow),
+        };
       },
     );
+
+    queryClient.setQueryData<SheetRow[] | undefined>(SHEET_QUERY_KEY, (current) => {
+      if (!Array.isArray(current)) {
+        return current;
+      }
+      return upsertRow(current, nextRow);
+    });
     return true;
   }
 
@@ -250,7 +276,46 @@ export function useStorageEvents(wsUrl?: string): void {
     let socket: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let fallbackRefetchTimer: ReturnType<typeof setTimeout> | null = null;
+    let sheetFlushTimer: ReturnType<typeof setTimeout> | null = null;
+    const pendingSheetRows = new Map<string, SheetRow>();
     let stopped = false;
+
+    const flushPendingSheetRows = () => {
+      if (pendingSheetRows.size === 0) {
+        return;
+      }
+      const rows = Array.from(pendingSheetRows.values());
+      pendingSheetRows.clear();
+
+      queryClient.setQueryData<StorageListResponse | undefined>(
+        STORAGE_QUERY_KEY,
+        (current) => {
+          if (!current) {
+            return current;
+          }
+
+          let nextRows = current.rows;
+          rows.forEach((row) => {
+            nextRows = upsertRow(nextRows, row);
+          });
+          return {
+            ...current,
+            rows: nextRows,
+          };
+        },
+      );
+
+      queryClient.setQueryData<SheetRow[] | undefined>(SHEET_QUERY_KEY, (current) => {
+        if (!Array.isArray(current)) {
+          return current;
+        }
+        let nextRows = current;
+        rows.forEach((row) => {
+          nextRows = upsertRow(nextRows, row);
+        });
+        return nextRows;
+      });
+    };
 
     const connect = () => {
       if (stopped) {
@@ -264,6 +329,21 @@ export function useStorageEvents(wsUrl?: string): void {
           const event = JSON.parse(message.data) as StorageWsEvent;
           if (isDuplicateFileEvent(event)) {
             openDuplicateModalFromEvent(event);
+          }
+
+          if (isSheetRowUpdatedEvent(event)) {
+            const current = pendingSheetRows.get(event.payload.row.videoId);
+            if (!current || current.version <= event.payload.row.version) {
+              pendingSheetRows.set(event.payload.row.videoId, event.payload.row);
+            }
+            if (sheetFlushTimer) {
+              clearTimeout(sheetFlushTimer);
+            }
+            sheetFlushTimer = setTimeout(() => {
+              flushPendingSheetRows();
+              sheetFlushTimer = null;
+            }, 40);
+            return;
           }
 
           const handled = applyStorageEventToCache(queryClient, event);
@@ -304,6 +384,10 @@ export function useStorageEvents(wsUrl?: string): void {
       }
       if (fallbackRefetchTimer) {
         clearTimeout(fallbackRefetchTimer);
+      }
+      if (sheetFlushTimer) {
+        clearTimeout(sheetFlushTimer);
+        flushPendingSheetRows();
       }
       socket?.close();
       socket = null;

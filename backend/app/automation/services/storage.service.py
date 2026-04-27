@@ -198,6 +198,9 @@ class StorageService:
         for subscriber in subscribers:
             subscriber.put_nowait(data)
 
+    async def emit_event(self, event: str, payload: dict[str, object]) -> None:
+        await self._emit_event(event, payload)
+
     async def ensure_storage_dir(self) -> None:
         await asyncio.to_thread(self._storage_path.mkdir, parents=True, exist_ok=True)
 

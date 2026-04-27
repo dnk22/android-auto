@@ -100,8 +100,22 @@ export function useSheetEditor() {
       return;
     }
     setSheet(sheetQuery.data);
-    reset({ rows: sheetQuery.data.map(toEditorFormRow) });
-  }, [reset, setSheet, sheetQuery.data]);
+    const nextRows = sheetQuery.data.map(toEditorFormRow);
+    const currentRows = getValues("rows");
+    const sameShape =
+      Array.isArray(currentRows)
+      && currentRows.length === nextRows.length
+      && currentRows.every((row, index) => row.videoId === nextRows[index]?.videoId);
+    const hasRowVersionChanged =
+      !sameShape
+      || nextRows.some((row, index) => Number(currentRows[index]?.version) !== row.version);
+
+    if (!hasRowVersionChanged) {
+      return;
+    }
+
+    reset({ rows: nextRows }, { keepDirtyValues: true });
+  }, [getValues, reset, setSheet, sheetQuery.data]);
 
   const saveRowAt = (index: number): void => {
     const row = fields[index];

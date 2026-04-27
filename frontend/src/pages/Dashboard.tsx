@@ -1,8 +1,12 @@
 import SidebarContainer from "../containers/Sidebar/index";
 import DashboardMainContainer from "../containers/DashboardMain/index";
 import DeviceWorkspaceContainer from "../containers/DeviceWorkspace/index";
+import { useStorage, useStorageEvents } from "../automation/hooks/useStorage";
 
 export default function Dashboard(): JSX.Element {
+  const { wsUrl } = useStorage();
+  useStorageEvents(wsUrl);
+
   return (
     <div className="app-shell min-h-screen w-full p-2">
       <div className="grid min-h-[calc(100vh-2rem)] w-full grid-cols-1 gap-4 lg:grid-cols-[15%_55%_28%]">

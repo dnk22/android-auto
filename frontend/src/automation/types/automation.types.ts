@@ -113,9 +113,18 @@ export type StorageRowDeletedEvent = {
   };
 };
 
+export type SheetRowUpdatedEvent = {
+  event: "sheet_row_updated";
+  ts: number;
+  payload: {
+    row: SheetRow;
+  };
+};
+
 export type StorageWsEvent =
   | DuplicateFileEvent
   | StorageRowUpsertedEvent
   | StorageRowRenamedEvent
   | StorageRowDeletedEvent
+  | SheetRowUpdatedEvent
   | { event: string; ts: number; payload: Record<string, unknown> };

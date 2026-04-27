@@ -19,7 +19,7 @@ def load_automation_settings() -> AutomationSettings:
 
     return AutomationSettings(
         storage_dir=storage_dir,
-        ready_debounce_sec=float(os.getenv("AUTOMATION_READY_DEBOUNCE_SEC", "5")),
+        ready_debounce_sec=float(os.getenv("AUTOMATION_READY_DEBOUNCE_SEC", "10")),
         watcher_debounce_sec=float(os.getenv("AUTOMATION_WATCHER_DEBOUNCE_SEC", "0.3")),
         u2_timeout_sec=float(os.getenv("AUTOMATION_U2_TIMEOUT_SEC", "30")),
     )

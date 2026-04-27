@@ -6,7 +6,6 @@ import { DuplicateModal } from "../../../automation/components/DuplicateModal";
 import DebouncedButton from "../../../components/common/DebouncedButton";
 import {
   useStorage,
-  useStorageEvents,
 } from "../../../automation/hooks/useStorage";
 import { useAutomationStore } from "../../../automation/store/automation.store";
 
@@ -17,7 +16,6 @@ export default function StorageSectionContainer(): JSX.Element {
 
   const {
     rows,
-    wsUrl,
     videoFolderPath,
     loading,
     renameFile,
@@ -31,8 +29,6 @@ export default function StorageSectionContainer(): JSX.Element {
   const closeDuplicateModal = useAutomationStore(
     (state) => state.closeDuplicateModal,
   );
-
-  useStorageEvents(wsUrl);
 
   useEffect(() => {
     if (duplicateModal.isOpen) {

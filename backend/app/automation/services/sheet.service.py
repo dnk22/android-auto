@@ -18,6 +18,8 @@ from app.automation.utils.validator import validate_row
 class StorageServiceProtocol(Protocol):
     async def has_file(self, video_name: str) -> bool: ...
 
+    async def emit_event(self, event: str, payload: dict[str, object]) -> None: ...
+
 
 class JobQueueServiceProtocol(Protocol):
     async def enqueue(self, video_id: str, device_id: str) -> AutomationJob: ...
@@ -80,6 +82,16 @@ class SheetService:
     ) -> None:
         self._storage_service = storage_service
         self._queue_service = queue_service
+
+    async def _emit_row_updated_event(self, row: SheetRow) -> None:
+        if self._storage_service is None:
+            return
+        await self._storage_service.emit_event(
+            "sheet_row_updated",
+            {
+                "row": row.model_dump(),
+            },
+        )
 
     async def list_sheet(self) -> SheetState:
         await self._ensure_db_ready()
@@ -362,6 +374,7 @@ class SheetService:
             )
 
         self._log("info", "sheet_ready", videoId=video_id)
+        await self._emit_row_updated_event(updated)
         return updated
 
     async def set_status(self, video_id: str, status: str) -> SheetRow:
@@ -391,6 +404,7 @@ class SheetService:
                 )
 
             self._log("info", "sheet_status_updated", videoId=video_id, status=status)
+            await self._emit_row_updated_event(updated)
             return updated
 
         await self._ensure_db_ready()
@@ -401,13 +415,15 @@ class SheetService:
             updated = await asyncio.to_thread(self._update_status_sync, video_id, status)
 
         self._log("info", "sheet_status_updated", videoId=video_id, status=status)
+        await self._emit_row_updated_event(updated)
         return updated
 
     async def on_job_status(self, video_id: str, status: str) -> None:
         await self._ensure_db_ready()
         async with self._lock:
             mapped = "idle" if status == "stopped" else status
-            await asyncio.to_thread(self._update_status_sync, video_id, mapped)
+            updated = await asyncio.to_thread(self._update_status_sync, video_id, mapped)
+        await self._emit_row_updated_event(updated)
 
     async def cancel(self) -> None:
         async with self._lock:
@@ -453,9 +469,10 @@ class SheetService:
 
             async with self._lock:
                 await asyncio.to_thread(self._set_meta_job_id_sync, video_id, job.jobId)
-                await asyncio.to_thread(self._update_status_sync, video_id, "queued")
+                updated = await asyncio.to_thread(self._update_status_sync, video_id, "queued")
 
             self._log("info", "job_enqueued", videoId=video_id, deviceId=device_id)
+            await self._emit_row_updated_event(updated)
         except asyncio.CancelledError:
             return
 
@@ -470,7 +487,8 @@ class SheetService:
             job = await self._queue_service.enqueue(row.videoId, row.deviceId)
             async with self._lock:
                 await asyncio.to_thread(self._set_meta_job_id_sync, row.videoId, job.jobId)
-                await asyncio.to_thread(self._update_status_sync, row.videoId, "queued")
+                updated = await asyncio.to_thread(self._update_status_sync, row.videoId, "queued")
+            await self._emit_row_updated_event(updated)
 
     async def _stop_active_jobs_and_reset(self) -> None:
         if self._queue_service is not None:
