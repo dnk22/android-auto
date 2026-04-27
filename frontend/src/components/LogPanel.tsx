@@ -1,39 +1,59 @@
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 
+import { AutoLogPanelPlaceholder } from "../logs/AutoLogPanelPlaceholder";
+import { SystemLogPanel } from "../logs/SystemLogPanel";
 import { useStore } from "../store/useStore";
+
+type LogTab = "system" | "auto";
 
 export default function LogPanel(): JSX.Element {
   const logs = useStore((state) => state.logs);
-  const panelRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (panelRef.current) {
-      panelRef.current.scrollTop = panelRef.current.scrollHeight;
-    }
-  }, [logs]);
+  const clearLogs = useStore((state) => state.clearLogs);
+  const [activeTab, setActiveTab] = useState<LogTab>("system");
 
   return (
     <section className="card fade-in flex h-full min-h-0 flex-col p-6 max-h-[50vh]">
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-xl">Live Logs</h3>
+        <h3 className="font-display text-xl">Logs</h3>
         <span className="rounded-full bg-[var(--chip-success-bg)] px-3 py-1 text-xs text-[var(--chip-success-fg)]">
           Streaming
         </span>
       </div>
-      <div
-        ref={panelRef}
-        className="mt-4 flex-1 space-y-2 overflow-y-auto rounded-xl bg-[var(--panel-soft)] px-4 py-3 text-xs text-[var(--ink)]"
-      >
-        {logs.length === 0 ? (
-          <p className="text-[var(--muted)]">Waiting for logs...</p>
-        ) : (
-          logs.map((line, index) => (
-            <p key={`${line}-${index}`} className="font-mono">
-              {line}
-            </p>
-          ))
-        )}
+
+      <div className="mt-4 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("system");
+          }}
+          className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+            activeTab === "system"
+              ? "bg-[var(--accent-2)] text-white"
+              : "border border-[var(--card-border)] text-[var(--ink)]"
+          }`}
+        >
+          System
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("auto");
+          }}
+          className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+            activeTab === "auto"
+              ? "bg-[var(--accent-2)] text-white"
+              : "border border-[var(--card-border)] text-[var(--ink)]"
+          }`}
+        >
+          Auto Log
+        </button>
       </div>
+
+      {activeTab === "system" ? (
+        <SystemLogPanel logs={logs} onClear={clearLogs} />
+      ) : (
+        <AutoLogPanelPlaceholder />
+      )}
     </section>
   );
 }

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { AppStore, ThemeMode } from "../types/store/store.types";
+import { normalizeSystemLog, parseLogMessage } from "../logs/normalizeSystemLog";
 
 export const selectHasU2Device = (state: AppStore): boolean =>
   state.devices.some((device) => Boolean(device.u2));
@@ -20,9 +21,9 @@ export const useStore = create<AppStore>((set) => ({
   syncAllDevices: false,
   activeStreams: {},
   theme: getInitialTheme(),
-  addLog: (message: string) =>
+  addLog: (message: unknown) =>
     set((state) => ({
-      logs: [...state.logs, message].slice(-500),
+      logs: [...state.logs, normalizeSystemLog(parseLogMessage(message))].slice(-1000),
     })),
   setDevices: (devices) => set({ devices }),
   mergeDevice: (device) =>

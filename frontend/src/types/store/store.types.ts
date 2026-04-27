@@ -1,4 +1,5 @@
 import type { LegacyDevice } from "../device";
+import type { SystemLogEvent } from "../../logs/types";
 
 export type ThemeMode = "light" | "dark";
 
@@ -13,13 +14,13 @@ export type ActiveStreamsMap = Record<string, StreamViewState>;
 
 export interface AppStore {
   devices: LegacyDevice[];
-  logs: string[];
+  logs: SystemLogEvent[];
   selectedDevice: string;
   selectedStreamDevice: string;
   syncAllDevices: boolean;
   activeStreams: ActiveStreamsMap;
   theme: ThemeMode;
-  addLog: (message: string) => void;
+  addLog: (message: unknown) => void;
   setDevices: (devices: LegacyDevice[]) => void;
   mergeDevice: (device: LegacyDevice) => void;
   setSelectedDevice: (selectedDevice: string) => void;

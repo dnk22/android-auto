@@ -3,6 +3,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import Dashboard from "./pages/Dashboard";
+import { parseLogMessage } from "./logs/normalizeSystemLog";
 import { useDevices } from "./hooks/useDevices";
 import { useStore } from "./store/useStore";
 
@@ -27,7 +28,7 @@ export default function App(): JSX.Element {
         addLog("WebSocket connected");
       };
       socket.onmessage = (event) => {
-        addLog(event.data);
+        addLog(parseLogMessage(event.data));
       };
       socket.onerror = () => {
         socket?.close();
