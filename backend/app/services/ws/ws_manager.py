@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Iterable
+from typing import Any
 
 from fastapi import WebSocket
 
@@ -50,15 +52,20 @@ class WSManager:
                 for websocket in stale:
                     self._connections.discard(websocket)
 
-    async def broadcast_log(self, message: str) -> None:
+    async def broadcast_log(self, message: dict[str, Any] | str) -> None:
         stale: list[WebSocket] = []
+
+        if isinstance(message, str):
+            wire_message = message
+        else:
+            wire_message = json.dumps(message, ensure_ascii=False)
 
         async with self._lock:
             targets: Iterable[WebSocket] = tuple(self._log_connections)
 
         for websocket in targets:
             try:
-                await websocket.send_text(message)
+                await websocket.send_text(wire_message)
             except Exception:
                 stale.append(websocket)
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib.util
 import asyncio
-import logging
 import sys
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -12,6 +11,7 @@ from fastapi import APIRouter
 
 
 _BASE_DIR = Path(__file__).resolve().parent
+LogSink = Callable[[dict[str, object]], Awaitable[None]]
 
 
 def _load_module(relative_path: str, module_name: str) -> ModuleType:
@@ -78,72 +78,35 @@ _controller_mod = _load_module(
     "controllers/automation.controller.py",
     "app.automation.controllers.automation_controller",
 )
-
-
-LogSink = Callable[[str], Awaitable[None]]
-
-
-def _drain_task(task: asyncio.Task[None]) -> None:
-    try:
-        _ = task.exception()
-    except asyncio.CancelledError:
-        return
-
-
-class _AutomationWsLogHandler(logging.Handler):
-    def __init__(self) -> None:
-        super().__init__()
-        self._sink: LogSink | None = None
-        self._loop: asyncio.AbstractEventLoop | None = None
-
-    def set_sink(self, sink: LogSink | None) -> None:
-        self._sink = sink
-
-    def set_loop(self, loop: asyncio.AbstractEventLoop | None) -> None:
-        self._loop = loop
-
-    def emit(self, record: logging.LogRecord) -> None:
-        sink = self._sink
-        loop = self._loop
-        if sink is None or loop is None:
-            return
-
-        line = record.getMessage()
-
-        def _send() -> None:
-            task = loop.create_task(sink(line))
-            task.add_done_callback(_drain_task)
-
-        loop.call_soon_threadsafe(_send)
+_system_logger_mod = _load_module(
+    "logging/system_logger.py",
+    "app.automation.logging.system_logger",
+)
 
 
 class AutomationRuntime:
     def __init__(self) -> None:
-        self._logger = logging.getLogger("automation")
-        self._logger.setLevel(logging.INFO)
-        self._logger.propagate = False
-        self._ws_log_handler = _AutomationWsLogHandler()
-        self._logger.addHandler(self._ws_log_handler)
+        self._system_logger = _system_logger_mod.AutomationSystemLogger()
         self._settings = _constants_mod.load_automation_settings()
 
         self._sheet_service = _sheet_service_mod.SheetService(
-            logger=self._logger,
+            logger=self._system_logger,
             ready_debounce_sec=self._settings.ready_debounce_sec,
             storage_path=self._settings.storage_dir,
         )
         self._execution_service = _execution_service_mod.ExecutionService(
             db_path=self._settings.storage_dir / "automation.db",
-            logger=self._logger,
+            logger=self._system_logger,
         )
         self._device_lock_service = _device_lock_service_mod.DeviceLockService(
             db_path=self._settings.storage_dir / "automation.db",
         )
         self._storage_service = _storage_service_mod.StorageService(
             settings=self._settings,
-            logger=self._logger,
+            logger=self._system_logger,
         )
         self._shopee_bot = _shopee_bot_mod.ShopeeBot(
-            logger=self._logger,
+            logger=self._system_logger,
             timeout_sec=self._settings.u2_timeout_sec,
         )
         self._job_queue = _job_queue_mod.JobQueueService(
@@ -152,14 +115,14 @@ class AutomationRuntime:
             shopee_bot=self._shopee_bot,
             execution_service=self._execution_service,
             device_lock_service=self._device_lock_service,
-            logger=self._logger,
+            logger=self._system_logger,
         )
         self._execution_dispatcher = _execution_dispatcher_mod.ExecutionDispatcherService(
             execution_service=self._execution_service,
             sheet_service=self._sheet_service,
             device_lock_service=self._device_lock_service,
             queue_service=self._job_queue,
-            logger=self._logger,
+            logger=self._system_logger,
             poll_interval_sec=self._settings.dispatcher_poll_interval_sec,
         )
 
@@ -173,7 +136,7 @@ class AutomationRuntime:
         self._watcher = _watcher_mod.StorageWatcher(
             storage_path=self._storage_service.storage_path,
             storage_service=self._storage_service,
-            logger=self._logger,
+            logger=self._system_logger,
             debounce_sec=self._settings.watcher_debounce_sec,
         )
 
@@ -188,11 +151,11 @@ class AutomationRuntime:
     def router(self) -> APIRouter:
         return self._router
 
-    def set_log_sink(self, sink: LogSink) -> None:
-        self._ws_log_handler.set_sink(sink)
+    def set_log_sink(self, sink) -> None:
+        self._system_logger.set_sink(sink)
 
     async def startup(self) -> None:
-        self._ws_log_handler.set_loop(asyncio.get_running_loop())
+        self._system_logger.set_loop(asyncio.get_running_loop())
         await self._sheet_service.startup()
         await self._storage_service.ensure_storage_dir()
         await self._storage_service.sync_sheet_from_storage()
@@ -207,7 +170,7 @@ class AutomationRuntime:
         )
 
     async def shutdown(self) -> None:
-        self._ws_log_handler.set_loop(None)
+        self._system_logger.set_loop(None)
         await self._watcher.stop()
         await self._execution_dispatcher.stop()
         await self._job_queue.stop()

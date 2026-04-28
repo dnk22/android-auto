@@ -8,7 +8,6 @@ import httpx
 
 from app.core.events import DeviceUpdateEvent
 from app.core.locks import DeviceLocks
-from app.models.common import LogType
 from app.models.device import DeviceState, StreamStatus
 from app.services.device.controller import DeviceController
 from app.services.logging.logger import JsonLogger
@@ -65,8 +64,8 @@ class DeviceManager:
                 await self._push_update(device)
                 if previous:
                     self._logger.warning(
-                        device_id=device_id,
-                        type=LogType.ADB,
+                        component="adb",
+                        deviceId=device_id,
                         event="adb_disconnected",
                         message="ADB disconnected",
                     )
@@ -75,8 +74,8 @@ class DeviceManager:
             self._enforce_invariants(device)
             if not previous:
                 self._logger.success(
-                    device_id=device_id,
-                    type=LogType.ADB,
+                    component="adb",
+                    deviceId=device_id,
                     event="adb_connected",
                     message="ADB connected",
                 )
@@ -108,8 +107,8 @@ class DeviceManager:
             device.last_seen = now_ts()
 
             self._logger.success(
-                device_id=device_id,
-                type=LogType.STREAM,
+                component="stream",
+                deviceId=device_id,
                 event="start_stream",
                 message="Stream started",
                 meta={"node": device.media_node_id},
@@ -135,8 +134,8 @@ class DeviceManager:
             self._disconnect_tasks[device_id] = asyncio.create_task(self._delayed_stop(device_id))
 
             self._logger.info(
-                device_id=device_id,
-                type=LogType.U2,
+                component="u2",
+                deviceId=device_id,
                 event="disconnect",
                 message="Disconnect requested, stream stop delayed",
                 meta={"grace_sec": self._disconnect_grace_sec},
@@ -168,15 +167,15 @@ class DeviceManager:
                         await self._media_client.restart_stream(device_id, device.media_node_id)
                         device.last_frame_at = now_ts()
                         self._logger.warning(
-                            device_id=device_id,
-                            type=LogType.STREAM,
+                            component="stream",
+                            deviceId=device_id,
                             event="restart_stream",
                             message="Stream stale, restarted",
                         )
                     except httpx.TimeoutException as exc:
                         self._logger.warning(
-                            device_id=device_id,
-                            type=LogType.STREAM,
+                            component="stream",
+                            deviceId=device_id,
                             event="restart_stream_timeout",
                             message="Media restart timed out, checking stream status",
                             meta={"error": str(exc), "node": device.media_node_id},
@@ -190,8 +189,8 @@ class DeviceManager:
                                 return device
                         except Exception as status_error:
                             self._logger.error(
-                                device_id=device_id,
-                                type=LogType.STREAM,
+                                component="stream",
+                                deviceId=device_id,
                                 event="stream_status_after_timeout_failed",
                                 message="Failed to verify stream state after timeout",
                                 meta={"error": str(status_error), "node": device.media_node_id},
@@ -283,8 +282,8 @@ class DeviceManager:
                 await self._media_client.stop_stream(device.device_id, device.media_node_id)
             except Exception as exc:
                 self._logger.error(
-                    device_id=device.device_id,
-                    type=LogType.STREAM,
+                    component="stream",
+                    deviceId=device.device_id,
                     event="stop_stream_error",
                     message="Failed to stop stream",
                     meta={"reason": reason, "error": str(exc)},

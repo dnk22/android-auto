@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 
-from app.models.common import LogType
 from app.services.device.device_manager import DeviceManager
 from app.services.logging.logger import JsonLogger
 
@@ -38,8 +37,7 @@ class AdbWatcher:
                 await self._reconcile(devices)
             except Exception as exc:
                 self._logger.error(
-                    device_id=None,
-                    type=LogType.ADB,
+                    component="adb",
                     event="adb_watcher_error",
                     message="ADB watcher iteration failed",
                     meta={"error": str(exc)},

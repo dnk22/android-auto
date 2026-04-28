@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import os
 import shlex
 import shutil
@@ -10,6 +9,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Protocol
+from app.automation.logging.system_logger import AutomationLogComponent, AutomationSystemLogger
 
 from app.automation.constants.automation_constants import AutomationSettings
 
@@ -35,7 +35,7 @@ class SheetServiceProtocol(Protocol):
 
 
 class StorageService:
-    def __init__(self, *, settings: AutomationSettings, logger: logging.Logger) -> None:
+    def __init__(self, *, settings: AutomationSettings, logger: AutomationSystemLogger) -> None:
         self._settings = settings
         self._storage_path = settings.storage_dir
         self._logger = logger
@@ -108,11 +108,11 @@ class StorageService:
         target = self._desktop_video_folder() if is_desktop else self._repo_video_folder()
         await asyncio.to_thread(target.mkdir, parents=True, exist_ok=True)
         await self._persist_video_folder_path(target=target, is_desktop=is_desktop)
-        self._log(
-            "info",
-            "video_folder_created",
-            path=str(target),
-            isDesktop=is_desktop,
+        self._logger.success(
+            component=AutomationLogComponent.STORAGE,
+            event="storage_sync_completed",
+            message=f"Created video folder: {target}",
+            meta={"path": str(target), "isDesktop": is_desktop},
         )
         return target
 
@@ -162,16 +162,6 @@ class StorageService:
         if lower.endswith(".db-journal") or lower.endswith(".db-wal") or lower.endswith(".db-shm"):
             return True
         return False
-
-    def _log(self, level: str, event: str, **meta: object) -> None:
-        payload = {
-            "ts": int(time.time()),
-            "service": "automation",
-            "component": "storage",
-            "event": event,
-            "meta": meta,
-        }
-        getattr(self._logger, level)(json.dumps(payload, ensure_ascii=True))
 
     def bind_sheet_service(self, sheet_service: SheetServiceProtocol) -> None:
         self._sheet_service = sheet_service
@@ -273,12 +263,22 @@ class StorageService:
                 src = target_dir / video_name
                 dst = target_dir / generated
                 if not await asyncio.to_thread(src.exists):
-                    self._log("info", "transient_file_skipped", name=video_name)
+                    self._logger.warning(
+                        component=AutomationLogComponent.STORAGE,
+                        event="storage_file_missing",
+                        message=f"Skipping transient file: {video_name}",
+                        meta={"videoName": video_name},
+                    )
                     return
                 try:
                     await asyncio.to_thread(src.rename, dst)
                 except FileNotFoundError:
-                    self._log("info", "transient_file_skipped", name=video_name)
+                    self._logger.warning(
+                        component=AutomationLogComponent.STORAGE,
+                        event="storage_file_missing",
+                        message=f"Skipping transient file: {video_name}",
+                        meta={"videoName": video_name},
+                    )
                     return
                 final_name = generated
                 created_by_duplicate = True
@@ -290,11 +290,11 @@ class StorageService:
                         "createdByDuplicate": True,
                     },
                 )
-                self._log(
-                    "warning",
-                    "duplicate_file_detected",
-                    originalName=video_name,
-                    renamedTo=final_name,
+                self._logger.warning(
+                    component=AutomationLogComponent.STORAGE,
+                    event="storage_file_added",
+                    message=f"Detected duplicate video file, renamed to {final_name}",
+                    meta={"originalName": video_name, "renamedTo": final_name},
                 )
 
             row = await self._sheet_service.upsert_from_storage(
@@ -381,12 +381,11 @@ class StorageService:
                 },
             )
 
-            self._log(
-                "info",
-                "storage_renamed",
-                fromName=video_name,
-                toName=candidate,
-                createdByDuplicate=created_by_duplicate,
+            self._logger.success(
+                component=AutomationLogComponent.STORAGE,
+                event="storage_file_renamed",
+                message=f"Renamed video file: {video_name} -> {candidate}",
+                meta={"fromName": video_name, "toName": candidate, "createdByDuplicate": created_by_duplicate},
             )
             return video_name, candidate, created_by_duplicate
 
@@ -420,7 +419,12 @@ class StorageService:
                     "row": row.model_dump() if row is not None else None,
                 },
             )
-        self._log("info", "storage_deleted", videoName=video_name)
+        self._logger.success(
+            component=AutomationLogComponent.STORAGE,
+            event="storage_file_deleted",
+            message=f"Deleted video file: {video_name}",
+            meta={"videoName": video_name},
+        )
 
     async def open_video_folder(self) -> str:
         target_dir = await self.get_active_video_folder_path()
@@ -448,5 +452,10 @@ class StorageService:
             safe_command = " ".join(shlex.quote(part) for part in command)
             raise RuntimeError(message or f"failed to open folder with command: {safe_command}")
 
-        self._log("info", "video_folder_opened", path=str(target_dir))
+        self._logger.info(
+            component=AutomationLogComponent.STORAGE,
+            event="storage_sync_started",
+            message=f"Opened video folder: {target_dir}",
+            meta={"path": str(target_dir)},
+        )
         return str(target_dir)

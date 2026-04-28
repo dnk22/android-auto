@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import sqlite3
 import time
 from pathlib import Path
 from typing import Protocol
 from uuid import uuid4
 
+from app.automation.logging.system_logger import AutomationLogComponent, AutomationSystemLogger
 from app.automation.models.job_model import AutomationJob
 from app.automation.models.sheet_model import SessionState, SheetRow, SheetState
 from app.automation.models.job_execution_model import JobExecution
@@ -35,7 +35,7 @@ class SheetService:
     def __init__(
         self,
         *,
-        logger: logging.Logger,
+        logger: AutomationSystemLogger,
         ready_debounce_sec: float,
         storage_path: Path,
     ) -> None:
@@ -57,7 +57,12 @@ class SheetService:
         async with self._lock:
             repaired = await asyncio.to_thread(self._repair_orphan_sheets_sync)
         if repaired > 0:
-            self._log("warning", "orphan_sheets_repaired", repairedCount=repaired)
+            self._logger.warning(
+                component=AutomationLogComponent.SHEET,
+                event="orphan_sheets_repaired",
+                message="Repaired orphan sheet rows",
+                meta={"repairedCount": repaired},
+            )
 
     async def _ensure_db_ready(self) -> None:
         if self._db_ready:
@@ -68,16 +73,6 @@ class SheetService:
                 return
             await asyncio.to_thread(self._init_db_sync)
             self._db_ready = True
-
-    def _log(self, level: str, event: str, **meta: object) -> None:
-        payload = {
-            "ts": int(time.time()),
-            "service": "automation",
-            "component": "sheet",
-            "event": event,
-            "meta": meta,
-        }
-        getattr(self._logger, level)(json.dumps(payload, ensure_ascii=True))
 
     def bind_dependencies(
         self,
@@ -187,7 +182,12 @@ class SheetService:
                 created_by_duplicate,
             )
 
-        self._log("info", "sheet_row_created", videoId=row.videoId, videoName=row.videoName)
+        self._logger.success(
+            component=AutomationLogComponent.SHEET,
+            event="sheet_row_created",
+            message=f"Created sheet row for {row.videoName}",
+            meta={"videoId": row.videoId, "videoName": row.videoName},
+        )
         await self._auto_ready_if_needed(row.videoId)
         return row.model_copy(deep=True)
 
@@ -257,7 +257,12 @@ class SheetService:
                 raise ValueError("only missing_file/done/stopped rows can be deleted")
             await asyncio.to_thread(self._delete_row_by_video_name_sync, video_name)
 
-        self._log("info", "sheet_row_deleted", videoName=video_name)
+        self._logger.success(
+            component=AutomationLogComponent.SHEET,
+            event="sheet_row_deleted",
+            message=f"Deleted sheet row for {video_name}",
+            meta={"videoName": video_name},
+        )
 
     def _rename_video_with_missing_revival_sync(self, old_name: str, new_name: str) -> SheetRow | None:
         timestamp = int(time.time())
@@ -370,7 +375,12 @@ class SheetService:
             updated = await asyncio.to_thread(self._update_status_sync, video_id, SheetStatus.READY)
             self._schedule_ready_debounce_locked(video_id)
 
-        self._log("info", "sheet_ready", videoId=video_id)
+        self._logger.info(
+            component=AutomationLogComponent.SHEET,
+            event="sheet_row_ready",
+            message=f"Sheet row marked ready: {video_id}",
+            meta={"videoId": video_id, "status": SheetStatus.READY},
+        )
         await self._emit_row_updated_event(updated)
         return updated
 
@@ -393,7 +403,12 @@ class SheetService:
                 if updated is None:
                     raise ValueError("failed to create execution for queued status")
 
-            self._log("info", "sheet_status_updated", videoId=video_id, status=status)
+            self._logger.info(
+                component=AutomationLogComponent.SHEET,
+                event="sheet_status_updated",
+                message=f"Sheet status updated to {status}: {video_id}",
+                meta={"videoId": video_id, "status": status},
+            )
             await self._emit_row_updated_event(updated)
             return updated
         if status == SheetStatus.STOPPED and self._queue_service is not None:
@@ -410,7 +425,12 @@ class SheetService:
                 raise ValueError("row not found")
             updated = await asyncio.to_thread(self._update_status_sync, video_id, status)
 
-        self._log("info", "sheet_status_updated", videoId=video_id, status=status)
+        self._logger.info(
+            component=AutomationLogComponent.SHEET,
+            event="sheet_status_updated",
+            message=f"Sheet status updated to {status}: {video_id}",
+            meta={"videoId": video_id, "status": status},
+        )
         await self._emit_row_updated_event(updated)
         return updated
 
@@ -488,11 +508,11 @@ class SheetService:
                 updated, execution = await self._create_execution_from_ready_locked(video_id)
             if updated is None or execution is None:
                 return
-            self._log(
-                "info",
-                "sheet_row_queued",
-                videoId=video_id,
-                executionId=execution.id,
+            self._logger.success(
+                component=AutomationLogComponent.SHEET,
+                event="sheet_row_queued",
+                message=f"Sheet row queued for execution: {video_id}",
+                meta={"videoId": video_id, "executionId": execution.id},
             )
             await self._emit_row_updated_event(updated)
         except asyncio.CancelledError:
@@ -522,11 +542,11 @@ class SheetService:
                     remaining = self._ready_debounce_sec - elapsed
                     self._schedule_ready_debounce_locked(row.videoId, remaining)
             if updated_row is not None and created_execution is not None:
-                self._log(
-                    "info",
-                    "sheet_row_queued",
-                    videoId=row.videoId,
-                    executionId=created_execution.id,
+                self._logger.success(
+                    component=AutomationLogComponent.SHEET,
+                    event="sheet_row_queued",
+                    message=f"Sheet row queued for execution: {row.videoId}",
+                    meta={"videoId": row.videoId, "executionId": created_execution.id},
                 )
                 await self._emit_row_updated_event(updated_row)
 

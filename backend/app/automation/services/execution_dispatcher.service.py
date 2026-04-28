@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import logging
 import time
 from typing import Protocol
 
 from app.automation.constants.automation_constants import SheetStatus
+from app.automation.logging.system_logger import AutomationLogComponent, AutomationSystemLogger
 from app.automation.models.job_execution_model import JobExecution
 from app.automation.models.runtime_job_model import RuntimeJob
 
@@ -45,7 +44,7 @@ class ExecutionDispatcherService:
         sheet_service: SheetServiceProtocol,
         device_lock_service: DeviceLockServiceProtocol,
         queue_service: QueueServiceProtocol,
-        logger: logging.Logger,
+        logger: AutomationSystemLogger,
         poll_interval_sec: float,
     ) -> None:
         self._execution_service = execution_service
@@ -57,22 +56,16 @@ class ExecutionDispatcherService:
         self._task: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
 
-    def _log(self, level: str, event: str, **meta: object) -> None:
-        payload = {
-            "ts": int(time.time()),
-            "service": "automation",
-            "component": "execution_dispatcher",
-            "event": event,
-            "meta": meta,
-        }
-        getattr(self._logger, level)(json.dumps(payload, ensure_ascii=True))
-
     async def start(self) -> None:
         async with self._lock:
             if self._task and not self._task.done():
                 return
             self._task = asyncio.create_task(self._loop())
-            self._log("info", "dispatcher_started")
+            self._logger.info(
+                component=AutomationLogComponent.EXECUTION_DISPATCHER,
+                event="dispatcher_started",
+                message="Execution dispatcher started",
+            )
 
     async def stop(self) -> None:
         async with self._lock:
@@ -82,7 +75,11 @@ class ExecutionDispatcherService:
         if task:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
-            self._log("info", "dispatcher_stopped")
+            self._logger.info(
+                component=AutomationLogComponent.EXECUTION_DISPATCHER,
+                event="dispatcher_stopped",
+                message="Execution dispatcher stopped",
+            )
 
     async def _loop(self) -> None:
         try:
@@ -95,11 +92,11 @@ class ExecutionDispatcherService:
                     try:
                         await self._try_dispatch(execution)
                     except Exception as exc:  # noqa: BLE001
-                        self._log(
-                            "error",
-                            "dispatch_failed",
-                            executionId=execution.id,
-                            error=str(exc),
+                        self._logger.error(
+                            component=AutomationLogComponent.EXECUTION_DISPATCHER,
+                            event="dispatch_failed",
+                            message=f"Dispatch failed: {exc}",
+                            meta={"executionId": execution.id, "error": str(exc)},
                         )
                 await asyncio.sleep(self._poll_interval_sec)
         except asyncio.CancelledError:
@@ -113,13 +110,45 @@ class ExecutionDispatcherService:
                 execution.id,
                 "Sheet item not found",
             )
+            self._logger.warning(
+                component=AutomationLogComponent.EXECUTION_DISPATCHER,
+                event="pending_execution_missing_sheet_row",
+                message="Pending execution has no matching sheet row",
+                meta={"executionId": execution.id, "videoId": execution.videoId},
+            )
             return
         if row.status != SheetStatus.QUEUED:
             return
 
+        self._logger.info(
+            component=AutomationLogComponent.EXECUTION_DISPATCHER,
+            event="pending_execution_found",
+            message="Found pending execution",
+            meta={
+                "executionId": execution.id,
+                "jobId": execution.jobId,
+                "videoId": execution.videoId,
+                "requestedDevice": execution.requestedDevice,
+            },
+        )
+
         device_id = await self._pick_available_device(execution.requestedDevice)
         if not device_id:
+            self._logger.warning(
+                component=AutomationLogComponent.EXECUTION_DISPATCHER,
+                event="device_not_available",
+                message="No available device for pending execution",
+                meta={"executionId": execution.id, "requestedDevice": execution.requestedDevice},
+            )
             return
+
+        self._logger.info(
+            component=AutomationLogComponent.EXECUTION_DISPATCHER,
+            event="device_selected",
+            message=f"Selected device {device_id}",
+            deviceId=device_id,
+            meta={"executionId": execution.id, "videoId": execution.videoId},
+        )
 
         locked = await asyncio.to_thread(
             self._device_lock_service.acquire_lock,
@@ -128,7 +157,22 @@ class ExecutionDispatcherService:
             locked_by="execution_dispatcher",
         )
         if not locked:
+            self._logger.warning(
+                component=AutomationLogComponent.EXECUTION_DISPATCHER,
+                event="device_lock_failed",
+                message=f"Failed to acquire device lock for {device_id}",
+                deviceId=device_id,
+                meta={"executionId": execution.id},
+            )
             return
+
+        self._logger.success(
+            component=AutomationLogComponent.EXECUTION_DISPATCHER,
+            event="device_lock_acquired",
+            message=f"Acquired device lock for {device_id}",
+            deviceId=device_id,
+            meta={"executionId": execution.id},
+        )
 
         try:
             assigned = await asyncio.to_thread(
@@ -140,6 +184,14 @@ class ExecutionDispatcherService:
                 await asyncio.to_thread(self._device_lock_service.release_lock, device_id)
                 return
 
+            self._logger.success(
+                component=AutomationLogComponent.EXECUTION_DISPATCHER,
+                event="execution_assigned",
+                message=f"Execution assigned to device {device_id}",
+                deviceId=device_id,
+                meta={"executionId": execution.id, "videoId": execution.videoId},
+            )
+
             await self._queue_service.enqueue_runtime_job(
                 RuntimeJob(
                     execution_id=execution.id,
@@ -148,12 +200,12 @@ class ExecutionDispatcherService:
                     assigned_device=device_id,
                 ),
             )
-            self._log(
-                "info",
-                "execution_assigned",
-                executionId=execution.id,
-                videoId=execution.videoId,
+            self._logger.info(
+                component=AutomationLogComponent.EXECUTION_DISPATCHER,
+                event="runtime_job_enqueued",
+                message="Runtime job enqueued",
                 deviceId=device_id,
+                meta={"executionId": execution.id, "videoId": execution.videoId},
             )
         except Exception:
             await asyncio.to_thread(self._device_lock_service.release_lock, device_id)
@@ -188,12 +240,21 @@ class ExecutionDispatcherService:
                 stderr=asyncio.subprocess.PIPE,
             )
         except FileNotFoundError:
-            self._log("warning", "adb_not_found")
+            self._logger.warning(
+                component=AutomationLogComponent.EXECUTION_DISPATCHER,
+                event="adb_not_found",
+                message="ADB executable not found",
+            )
             return []
         stdout, stderr = await process.communicate()
         if process.returncode != 0:
             message = stderr.decode("utf-8", errors="ignore").strip()
-            self._log("warning", "adb_devices_failed", message=message)
+            self._logger.warning(
+                component=AutomationLogComponent.EXECUTION_DISPATCHER,
+                event="adb_devices_failed",
+                message=f"Failed to list adb devices: {message}",
+                meta={"error": message},
+            )
             return []
         lines = stdout.decode("utf-8", errors="ignore").splitlines()
         devices: list[str] = []

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import logging
 import time
 from pathlib import Path
+
+from app.automation.logging.system_logger import AutomationLogComponent, AutomationSystemLogger
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler, FileSystemMovedEvent
 from watchdog.observers import Observer
@@ -18,7 +18,7 @@ class _StorageEventHandler(FileSystemEventHandler):
         watch_path: Path,
         debounce_sec: float,
         storage_service,
-        logger: logging.Logger,
+        logger: AutomationSystemLogger,
     ) -> None:
         self._loop = loop
         self._watch_path = watch_path
@@ -26,16 +26,6 @@ class _StorageEventHandler(FileSystemEventHandler):
         self._storage_service = storage_service
         self._logger = logger
         self._last_event_by_key: dict[str, float] = {}
-
-    def _log(self, level: str, event: str, **meta: object) -> None:
-        payload = {
-            "ts": int(time.time()),
-            "service": "automation",
-            "component": "watcher",
-            "event": event,
-            "meta": meta,
-        }
-        getattr(self._logger, level)(json.dumps(payload, ensure_ascii=True))
 
     def _schedule(self, coro) -> None:
         async def _wrapped() -> None:
@@ -45,7 +35,12 @@ class _StorageEventHandler(FileSystemEventHandler):
             except asyncio.CancelledError:
                 return
             except Exception as exc:  # noqa: BLE001
-                self._log("error", "watcher_task_error", error=str(exc))
+                self._logger.error(
+                    component=AutomationLogComponent.WATCHER,
+                    event="file_sync_failed",
+                    message=f"Watcher task failed: {exc}",
+                    meta={"error": str(exc)},
+                )
 
         self._loop.call_soon_threadsafe(lambda: self._loop.create_task(_wrapped()))
 
@@ -72,7 +67,12 @@ class _StorageEventHandler(FileSystemEventHandler):
             return
         if self._is_duplicate(f"created:{name}"):
             return
-        self._log("info", "file_created", name=name)
+        self._logger.info(
+            component=AutomationLogComponent.WATCHER,
+            event="file_created",
+            message=f"Detected new video file: {name}",
+            meta={"filename": name, "path": event.src_path},
+        )
         self._schedule(self._storage_service.handle_file_created(name))
 
     def on_deleted(self, event: FileSystemEvent) -> None:
@@ -83,7 +83,12 @@ class _StorageEventHandler(FileSystemEventHandler):
             return
         if self._is_duplicate(f"deleted:{name}"):
             return
-        self._log("info", "file_deleted", name=name)
+        self._logger.info(
+            component=AutomationLogComponent.WATCHER,
+            event="file_deleted",
+            message=f"Detected deleted video file: {name}",
+            meta={"filename": name, "path": event.src_path},
+        )
         self._schedule(self._storage_service.handle_file_deleted(name))
 
     def on_moved(self, event: FileSystemMovedEvent) -> None:
@@ -106,7 +111,12 @@ class _StorageEventHandler(FileSystemEventHandler):
                 return
             if self._is_duplicate(f"created:{new_name}"):
                 return
-            self._log("info", "file_created_by_move", name=new_name)
+            self._logger.info(
+                component=AutomationLogComponent.WATCHER,
+                event="file_created",
+                message=f"Detected new video file by move: {new_name}",
+                meta={"filename": new_name, "path": event.dest_path},
+            )
             self._schedule(self._storage_service.handle_file_created(new_name))
             return
 
@@ -118,7 +128,12 @@ class _StorageEventHandler(FileSystemEventHandler):
                 return
             if self._is_duplicate(f"deleted:{old_name}"):
                 return
-            self._log("info", "file_deleted_by_move", name=old_name)
+            self._logger.info(
+                component=AutomationLogComponent.WATCHER,
+                event="file_deleted",
+                message=f"Detected deleted video file by move: {old_name}",
+                meta={"filename": old_name, "path": event.src_path},
+            )
             self._schedule(self._storage_service.handle_file_deleted(old_name))
             return
 
@@ -136,7 +151,12 @@ class _StorageEventHandler(FileSystemEventHandler):
         if old_is_video and not new_is_video:
             if self._is_duplicate(f"deleted:{old_name}"):
                 return
-            self._log("info", "file_deleted_by_rename", name=old_name, newName=new_name)
+            self._logger.info(
+                component=AutomationLogComponent.WATCHER,
+                event="file_deleted",
+                message=f"Detected deleted video file by rename: {old_name}",
+                meta={"filename": old_name, "newName": new_name, "path": event.src_path},
+            )
             self._schedule(self._storage_service.handle_file_deleted(old_name))
             return
 
@@ -144,7 +164,12 @@ class _StorageEventHandler(FileSystemEventHandler):
         if not old_is_video and new_is_video:
             if self._is_duplicate(f"created:{new_name}"):
                 return
-            self._log("info", "file_created_by_rename", oldName=old_name, name=new_name)
+            self._logger.info(
+                component=AutomationLogComponent.WATCHER,
+                event="file_created",
+                message=f"Detected new video file by rename: {new_name}",
+                meta={"filename": new_name, "oldName": old_name, "path": event.dest_path},
+            )
             self._schedule(self._storage_service.handle_file_created(new_name))
             return
 
@@ -153,7 +178,12 @@ class _StorageEventHandler(FileSystemEventHandler):
 
         if self._is_duplicate(f"renamed:{old_name}:{new_name}"):
             return
-        self._log("info", "file_renamed", oldName=old_name, newName=new_name)
+        self._logger.info(
+            component=AutomationLogComponent.WATCHER,
+            event="file_renamed",
+            message=f"Detected renamed video file: {old_name} -> {new_name}",
+            meta={"oldName": old_name, "newName": new_name, "srcPath": event.src_path, "destPath": event.dest_path},
+        )
         self._schedule(self._storage_service.handle_file_renamed(old_name, new_name))
 
 
@@ -163,7 +193,7 @@ class StorageWatcher:
         *,
         storage_path: Path,
         storage_service,
-        logger: logging.Logger,
+        logger: AutomationSystemLogger,
         debounce_sec: float,
     ) -> None:
         self._default_storage_path = storage_path

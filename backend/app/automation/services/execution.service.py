@@ -1,31 +1,21 @@
 from __future__ import annotations
 
 import json
-import logging
 import sqlite3
 import time
 from pathlib import Path
 from uuid import uuid4
 
 from app.automation.constants.automation_constants import ExecutionStatus, SheetStatus
+from app.automation.logging.system_logger import AutomationLogComponent, AutomationSystemLogger
 from app.automation.models.job_execution_model import JobExecution
 from app.automation.models.sheet_model import SheetRow
 
 
 class ExecutionService:
-    def __init__(self, *, db_path: Path, logger: logging.Logger) -> None:
+    def __init__(self, *, db_path: Path, logger: AutomationSystemLogger) -> None:
         self._db_path = db_path
         self._logger = logger
-
-    def _log(self, level: str, event: str, **meta: object) -> None:
-        payload = {
-            "ts": int(time.time()),
-            "service": "automation",
-            "component": "execution",
-            "event": event,
-            "meta": meta,
-        }
-        getattr(self._logger, level)(json.dumps(payload, ensure_ascii=True))
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self._db_path)
@@ -176,7 +166,12 @@ class ExecutionService:
                 connection.commit()
             except sqlite3.IntegrityError:
                 connection.rollback()
-                self._log("warning", "execution_create_integrity_error", videoId=video_id)
+                self._logger.warning(
+                    component=AutomationLogComponent.EXECUTION,
+                    event="execution_create_failed",
+                    message="Failed to create execution due to integrity error",
+                    meta={"videoId": video_id},
+                )
                 return None, None
             except Exception:
                 connection.rollback()
@@ -186,13 +181,17 @@ class ExecutionService:
             return None, None
         execution = self._execution_from_db(execution_row)
         row = self._sheet_row_from_db(updated_row)
-        self._log(
-            "info",
-            "execution_created",
-            executionId=execution.id,
-            jobId=execution.jobId,
-            videoId=execution.videoId,
-            attemptNo=execution.attemptNo,
+        self._logger.success(
+            component=AutomationLogComponent.EXECUTION,
+            event="execution_created",
+            message="Created pending execution",
+            meta={
+                "executionId": execution.id,
+                "jobId": execution.jobId,
+                "videoId": execution.videoId,
+                "attemptNo": execution.attemptNo,
+                "status": execution.status,
+            },
         )
         return row, execution
 

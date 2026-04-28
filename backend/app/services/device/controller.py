@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 
-from app.models.common import LogType
 from app.services.logging.logger import JsonLogger
 from app.services.u2 import U2AutomationService
 
@@ -30,10 +29,10 @@ class DeviceController:
             ["shell", "input", "keyevent", str(key_code)],
         )
         self._logger.info(
-            device_id=device_id,
-            type=LogType.CONTROL,
-            event=action,
-            message="Keyevent command accepted",
+            component="control",
+            deviceId=device_id,
+            event="keyevent_sent",
+            message=f"Sent keyevent {key_code}",
             meta={"keyCode": key_code},
         )
 

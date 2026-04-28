@@ -1,31 +1,20 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import logging
 import time
 from typing import Any
 
+from app.automation.logging.system_logger import AutomationLogComponent, AutomationSystemLogger
 import uiautomator2 as u2
 
 
 class ShopeeBot:
     _SHOPEE_PACKAGE = "com.shopee.vn"
 
-    def __init__(self, *, logger: logging.Logger, timeout_sec: float) -> None:
+    def __init__(self, *, logger: AutomationSystemLogger, timeout_sec: float) -> None:
         self._logger = logger
         self._timeout_sec = timeout_sec
         self._connections: dict[str, Any] = {}
-
-    def _log(self, level: str, event: str, **meta: object) -> None:
-        payload = {
-            "ts": int(time.time()),
-            "service": "automation",
-            "component": "shopee_bot",
-            "event": event,
-            "meta": meta,
-        }
-        getattr(self._logger, level)(json.dumps(payload, ensure_ascii=True))
 
     async def _connect(self, device_id: str) -> Any:
         connection = await asyncio.wait_for(
@@ -45,22 +34,26 @@ class ShopeeBot:
         try:
             _ = await self._connect(device_id)
         except Exception as exc:  # noqa: BLE001
-            self._log("error", "device_connect_failed", deviceId=device_id, error=str(exc))
+            self._logger.error(
+                component=AutomationLogComponent.SHOPEE_BOT,
+                event="bot_failed",
+                message=f"Shopee bot failed to connect to device {device_id}: {exc}",
+                deviceId=device_id,
+                meta={"error": str(exc)},
+            )
             raise RuntimeError("device disconnected") from exc
 
-        self._log(
-            "info",
-            "run_started",
+        self._logger.info(
+            component=AutomationLogComponent.SHOPEE_BOT,
+            event="bot_started",
+            message="Shopee bot started",
             deviceId=device_id,
-            videoPath=video_path,
-            products=products,
-            hashtag=hashtag,
+            meta={"videoPath": video_path, "products": products, "hashtag": hashtag},
         )
         connection = self._connections[device_id]
 
         try:
             await asyncio.to_thread(connection.app_start, self._SHOPEE_PACKAGE, stop=True)
-            self._log("info", "shopee_opened", deviceId=device_id, package=self._SHOPEE_PACKAGE)
             await asyncio.sleep(1.5)
 
             width, height = await asyncio.to_thread(connection.window_size)
@@ -77,16 +70,24 @@ class ShopeeBot:
                 await asyncio.to_thread(connection.swipe, center_x, end_y, center_x, start_y, 0.2)
                 await asyncio.sleep(0.5)
 
-                self._log("info", "shopee_scroll_round", deviceId=device_id, round=round_index + 1)
-
             await asyncio.to_thread(connection.press, "home")
             await asyncio.sleep(0.4)
-            self._log("info", "returned_home", deviceId=device_id)
         except Exception as exc:  # noqa: BLE001
-            self._log("error", "run_failed", deviceId=device_id, error=str(exc))
+            self._logger.error(
+                component=AutomationLogComponent.SHOPEE_BOT,
+                event="bot_failed",
+                message=f"Shopee bot failed: {exc}",
+                deviceId=device_id,
+                meta={"error": str(exc)},
+            )
             raise
         finally:
-            self._log("info", "run_finished", deviceId=device_id)
+            self._logger.success(
+                component=AutomationLogComponent.SHOPEE_BOT,
+                event="bot_finished",
+                message="Shopee bot finished",
+                deviceId=device_id,
+            )
 
     async def stop_device(self, device_id: str) -> None:
         connection = self._connections.get(device_id)
@@ -96,6 +97,12 @@ class ShopeeBot:
         try:
             await asyncio.to_thread(connection.reset_uiautomator)
         except Exception as exc:  # noqa: BLE001
-            self._log("warning", "disconnect_failed", deviceId=device_id, error=str(exc))
+            self._logger.warning(
+                component=AutomationLogComponent.SHOPEE_BOT,
+                event="bot_stopped",
+                message=f"Shopee bot stop failed: {exc}",
+                deviceId=device_id,
+                meta={"error": str(exc)},
+            )
         finally:
             self._connections.pop(device_id, None)
