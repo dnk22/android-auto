@@ -97,13 +97,15 @@ EXECUTION_LOG_LEVELS = (
 )
 
 SHOPEE_UPLOAD_STEPS = (
-    {"index": 1, "key": "push_video", "name": "Day video vao thiet bi", "type": "adb"},
-    {"index": 2, "key": "open_shopee", "name": "Mo app Shopee", "type": "u2"},
-    {"index": 3, "key": "click_upload", "name": "Bam nut dang video", "type": "u2"},
-    {"index": 4, "key": "select_video", "name": "Chon video", "type": "u2"},
-    {"index": 5, "key": "input_products", "name": "Gan san pham", "type": "u2"},
-    {"index": 6, "key": "input_hashtag", "name": "Nhap hashtag", "type": "u2"},
-    {"index": 7, "key": "submit", "name": "Dang video", "type": "u2"},
+    {"index": 1, "key": "prepare_video", "name": "Đẩy video vào thiết bị", "type": "adb"},
+    {"index": 2, "key": "open_upload_flow", "name": "Mở màn đăng video", "type": "u2"},
+    {"index": 3, "key": "select_video", "name": "Chọn video từ thư viện", "type": "u2"},
+    {"index": 4, "key": "input_hashtag", "name": "Nhập hashtag", "type": "input"},
+    {"index": 5, "key": "edit_video_settings", "name": "Chỉnh sửa video và thêm nhạc", "type": "u2"},
+    {"index": 6, "key": "attach_products", "name": "Gắn sản phẩm", "type": "u2"},
+    {"index": 7, "key": "submit_video", "name": "Đăng video", "type": "u2"},
+    {"index": 8, "key": "wait_publish_result", "name": "Chờ đăng video hoàn tất", "type": "wait"},
+    {"index": 9, "key": "cleanup_device", "name": "Dọn dẹp thiết bị", "type": "adb", "always_run": True},
 )
 
 

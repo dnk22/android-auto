@@ -44,6 +44,66 @@ class AutoLogContext:
             component=self.component,
         )
 
+    async def info(
+        self,
+        *,
+        event: str,
+        message: str,
+        step_key: str | None = None,
+        step_name: str | None = None,
+        meta: dict[str, Any] | None = None,
+        reason: str | None = None,
+    ) -> None:
+        await self._log(
+            level="info",
+            event=event,
+            message=message,
+            step_key=step_key,
+            step_name=step_name,
+            meta=meta,
+            reason=reason,
+        )
+
+    async def success(
+        self,
+        *,
+        event: str,
+        message: str,
+        step_key: str | None = None,
+        step_name: str | None = None,
+        meta: dict[str, Any] | None = None,
+        reason: str | None = None,
+    ) -> None:
+        await self._log(
+            level="success",
+            event=event,
+            message=message,
+            step_key=step_key,
+            step_name=step_name,
+            meta=meta,
+            reason=reason,
+        )
+
+    async def warning(
+        self,
+        *,
+        event: str,
+        message: str,
+        step_key: str | None = None,
+        step_name: str | None = None,
+        meta: dict[str, Any] | None = None,
+        reason: str | None = None,
+    ) -> None:
+        await self._log(
+            level="warning",
+            event=event,
+            message=message,
+            step_key=step_key,
+            step_name=step_name,
+            meta=meta,
+            reason=reason,
+        )
+
     async def finish_step(self, step_key: str, message: str, *, meta: dict[str, Any] | None = None) -> None:
         step = await self.step_service.mark_step_done(
             self.execution.id,
@@ -93,6 +153,41 @@ class AutoLogContext:
             step_index=step["stepIndex"] if step else None,
             step_key=step_key,
             step_name=step["stepName"] if step else step_name,
+            source=self.source,
+            component=self.component,
+            reason=reason,
+            meta=meta,
+        )
+
+    async def _log(
+        self,
+        *,
+        level: str,
+        event: str,
+        message: str,
+        step_key: str | None,
+        step_name: str | None,
+        meta: dict[str, Any] | None,
+        reason: str | None,
+    ) -> None:
+        step = None
+        if step_key:
+            step = await self.step_service.get_current_running_step(self.execution.id)
+            if step is not None and step.get("stepKey") != step_key:
+                step = None
+
+        log_method = getattr(self.log_service, level)
+        await log_method(
+            execution_id=self.execution.id,
+            event=event,
+            message=message,
+            job_id=self.execution.jobId,
+            video_id=self.execution.videoId,
+            device_id=self.execution.assignedDevice,
+            step_id=step["id"] if step else None,
+            step_index=step["stepIndex"] if step else None,
+            step_key=step_key,
+            step_name=(step["stepName"] if step else step_name),
             source=self.source,
             component=self.component,
             reason=reason,

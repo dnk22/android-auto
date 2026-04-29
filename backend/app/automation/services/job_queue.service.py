@@ -8,6 +8,7 @@ from app.automation.constants.automation_constants import ExecutionStatus, Sheet
 from app.automation.logging.system_logger import AutomationLogComponent, AutomationSystemLogger
 from app.automation.models.job_model import AutomationJob
 from app.automation.models.runtime_job_model import RuntimeJob
+from app.automation.scenarios.shopee_upload.exceptions import PauseRequiredException
 from app.automation.services.auto_log_context_service import AutoLogContext
 from app.automation.utils.validator import build_hashtag, parse_products
 
@@ -30,6 +31,11 @@ class ShopeeBotProtocol(Protocol):
         products: list[str],
         hashtag: str,
         auto_log_context=None,
+        execution_id: str | None = None,
+        job_id: str | None = None,
+        video_id: str | None = None,
+        video_name: str | None = None,
+        device_video_path: str | None = None,
     ) -> None: ...
 
     async def stop_device(self, device_id: str) -> None: ...
@@ -39,6 +45,7 @@ class ExecutionServiceProtocol(Protocol):
     def get_by_id(self, execution_id: str): ...
 
     def mark_running(self, execution_id: str): ...
+    def mark_paused(self, execution_id: str, *, error_message: str | None = None): ...
 
     def mark_done(self, execution_id: str, *, result_meta: str | None = None): ...
 
@@ -421,6 +428,10 @@ class JobQueueService:
                 products=products,
                 hashtag=hashtag,
                 auto_log_context=auto_log_context,
+                execution_id=execution.id,
+                job_id=execution.jobId,
+                video_id=execution.videoId,
+                video_name=row.videoName,
             )
         except asyncio.CancelledError:
             if runtime_job.execution_id not in self._stopped_execution_ids:
@@ -449,6 +460,33 @@ class JobQueueService:
                 if execution.id in self._jobs:
                     self._jobs[execution.id].status = "stopped"
             raise
+        except PauseRequiredException as exc:
+            await asyncio.to_thread(
+                self._execution_service.mark_paused,
+                execution.id,
+                error_message=str(exc),
+            )
+            await self._sheet_service.on_job_status(execution.videoId, SheetStatus.PAUSED)
+            await self._execution_log_service.warning(
+                execution_id=execution.id,
+                event="execution_paused",
+                message=f"Automation tam dung: {str(exc)}",
+                job_id=execution.jobId,
+                video_id=execution.videoId,
+                device_id=execution.assignedDevice,
+                source="worker",
+                component="job_queue",
+                reason=getattr(exc, "reason", "manual_intervention_required"),
+                meta={
+                    "stepKey": getattr(exc, "step_key", None),
+                    "exceptionType": type(exc).__name__,
+                },
+            )
+            await asyncio.to_thread(self._device_lock_service.release_by_execution, execution.id)
+            async with self._lock:
+                if execution.id in self._jobs:
+                    self._jobs[execution.id].status = "paused"
+            return
         except Exception as exc:  # noqa: BLE001
             await asyncio.to_thread(self._execution_service.mark_error, execution.id, str(exc))
             await self._sheet_service.on_job_status(execution.videoId, SheetStatus.ERROR)

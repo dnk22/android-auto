@@ -292,6 +292,14 @@ class ExecutionService:
             expected_statuses={ExecutionStatus.ASSIGNED},
         )
 
+    def mark_paused(self, execution_id: str, *, error_message: str | None = None) -> JobExecution | None:
+        return self.update_execution_status(
+            execution_id,
+            ExecutionStatus.PAUSED,
+            expected_statuses={ExecutionStatus.RUNNING},
+            error_message=error_message,
+        )
+
     def mark_done(self, execution_id: str, *, result_meta: str | None = None) -> JobExecution | None:
         return self.update_execution_status(
             execution_id,
