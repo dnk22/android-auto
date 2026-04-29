@@ -3,8 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from ..actions.device_file import delete_device_file
-from ..actions.wait import wait_seconds
-from ..constants import STEP_CLEANUP_DEVICE, TIMEOUT
+from ..constants import STEP_CLEANUP_DEVICE
 from ..payload import ShopeeUploadPayload
 
 
@@ -24,12 +23,15 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
                 device_video_path=device_video_path,
                 auto_log_context=auto_log_context,
             )
+
+            await asyncio.sleep(5)
+
             if auto_log_context is not None:
                 await auto_log_context.info(
                     event="cleanup_device_deleted",
                     message="Đã xóa video khỏi thiết bị",
                     step_key=STEP_CLEANUP_DEVICE,
-                    meta={"deviceVideoPath": device_video_path},
+                    meta={"deviceVideoPath": device_video_path, "waitAfterDeleteSec": 5},
                 )
         except Exception as exc:
             if auto_log_context is not None:

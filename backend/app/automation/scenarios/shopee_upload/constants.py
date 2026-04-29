@@ -30,8 +30,8 @@ TIMEOUT: dict[str, dict[str, float]] = {
     },
     STEP_OPEN_UPLOAD_FLOW: {
         "app_start_wait_sec": 2.0,
-        "after_video_tab_wait_sec": 3.0,
-        "after_profile_tab_wait_sec": 3.0,
+        "after_video_tab_wait_sec": 2.0,
+        "after_profile_tab_wait_sec": 2.0,
     },
     STEP_SELECT_VIDEO: {
         "before_upload_button_wait_sec": 3.0,
@@ -73,49 +73,49 @@ SHOPEE_UPLOAD_STEPS: tuple[dict[str, Any], ...] = (
         "name": "Mở màn đăng video",
         "type": "u2",
     },
-    {
-        "index": 3,
-        "key": STEP_SELECT_VIDEO,
-        "name": "Chọn video từ thư viện",
-        "type": "u2",
-    },
-    {
-        "index": 4,
-        "key": STEP_EDIT_VIDEO_SETTINGS,
-        "name": "Chỉnh sửa video và thêm nhạc",
-        "type": "u2",
-    },
-    {
-        "index": 5,
-        "key": STEP_INPUT_HASHTAG,
-        "name": "Nhập hashtag",
-        "type": "input",
-    },
+    # {
+    #     "index": 3,
+    #     "key": STEP_SELECT_VIDEO,
+    #     "name": "Chọn video từ thư viện",
+    #     "type": "u2",
+    # },
+    # {
+    #     "index": 4,
+    #     "key": STEP_EDIT_VIDEO_SETTINGS,
+    #     "name": "Chỉnh sửa video và thêm nhạc",
+    #     "type": "u2",
+    # },
+    # {
+    #     "index": 5,
+    #     "key": STEP_INPUT_HASHTAG,
+    #     "name": "Nhập hashtag",
+    #     "type": "input",
+    # },
     # {
     #     "index": 6,
     #     "key": STEP_ATTACH_PRODUCTS,
     #     "name": "Gắn sản phẩm",
     #     "type": "u2",
     # },
-    {
-        "index": 7,
-        "key": STEP_SUBMIT_VIDEO,
-        "name": "Đăng video",
-        "type": "u2",
-    },
-    {
-        "index": 8,
-        "key": STEP_WAIT_PUBLISH_RESULT,
-        "name": "Chờ đăng video hoàn tất",
-        "type": "wait",
-    },
-    {
-        "index": 9,
-        "key": STEP_CLEANUP_DEVICE,
-        "name": "Dọn dẹp thiết bị",
-        "type": "adb",
-        "always_run": True,
-    },
+    # {
+    #     "index": 7,
+    #     "key": STEP_SUBMIT_VIDEO,
+    #     "name": "Đăng video",
+    #     "type": "u2",
+    # },
+    # {
+    #     "index": 8,
+    #     "key": STEP_WAIT_PUBLISH_RESULT,
+    #     "name": "Chờ đăng video hoàn tất",
+    #     "type": "wait",
+    # },
+    # {
+    #     "index": 9,
+    #     "key": STEP_CLEANUP_DEVICE,
+    #     "name": "Dọn dẹp thiết bị",
+    #     "type": "adb",
+    #     "always_run": True,
+    # },
 )
 
 
