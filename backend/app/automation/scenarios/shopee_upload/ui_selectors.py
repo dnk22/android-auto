@@ -22,10 +22,20 @@ class ShopeeUiSelectors:
         UiSelector(description_contains="click to post video"),
         UiSelector(text_contains="Đăng video"),
     ]
+    
+    BOX_SELECT_FROM_GALLERY = [
+        UiSelector(resource_id="com.shopee.vn:id/fl_right_tool_item"),
+        UiSelector(resource_id="com.shopee.vn:id/tv_gallery_entrance"),
+    ]
 
     FIRST_VIDEO_IN_PICKER = [
-        UiSelector(resource_id="first_video"),
-        UiSelector(class_name="android.widget.ImageView", index=0),
+        UiSelector(resource_id="com.shopee.vn:id/ll_check"),
+        UiSelector(class_name="android.widget.LinearLayout", index=1),
+    ]
+    
+    NEXT_BUTTON = [
+        UiSelector(resource_id="com.shopee.vn:id/tv_pick_next"),
+        UiSelector(text_contains="Tiếp theo"),
     ]
 
     HASHTAG_INPUT = [

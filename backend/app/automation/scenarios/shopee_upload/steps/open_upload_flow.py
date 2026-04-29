@@ -106,7 +106,7 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
         payload.connection,
         ShopeeUiSelectors.VIDEO_TAB,
         label="icon Live/Video ở bottom bar",
-        timeout_sec=8.0,
+        timeout_sec=6.0,
         ctx=ctx,
     )
 
@@ -116,7 +116,7 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
         payload.connection,
         ShopeeUiSelectors.PROFILE_TAB,
         label="tab Profile ở bottom bar",
-        timeout_sec=8.0,
+        timeout_sec=6.0,
         ctx=ctx,
     )
 
