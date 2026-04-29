@@ -8,10 +8,32 @@ import uiautomator2 as u2
 
 from app.automation.logging.system_logger import AutomationLogComponent, AutomationSystemLogger
 
-from .constants import STEP_OPEN_UPLOAD_FLOW, STEP_PREPARE_VIDEO, STEP_SELECT_VIDEO
+from .constants import (
+    STEP_ATTACH_PRODUCTS,
+    STEP_CLEANUP_DEVICE,
+    STEP_EDIT_VIDEO_SETTINGS,
+    STEP_INPUT_HASHTAG,
+    STEP_OPEN_UPLOAD_FLOW,
+    STEP_PREPARE_VIDEO,
+    STEP_SELECT_VIDEO,
+    STEP_SUBMIT_VIDEO,
+    STEP_WAIT_PUBLISH_RESULT,
+    get_cleanup_step,
+    get_main_steps,
+)
 from .exceptions import PauseRequiredException, StepFailedException
 from .payload import ShopeeUploadPayload
-from .steps import open_upload_flow, prepare_video, select_video
+from .steps import (
+    attach_products,
+    cleanup_device,
+    edit_video_settings,
+    input_hashtag,
+    open_upload_flow,
+    prepare_video,
+    select_video,
+    submit_video,
+    wait_publish_result,
+)
 
 StepHandler = Callable[[ShopeeUploadPayload, Any], Awaitable[None]]
 
@@ -71,25 +93,21 @@ class ShopeeUploadRunner:
             },
         )
 
-        await self._run_step(
-            step={"key": STEP_PREPARE_VIDEO, "name": "Đẩy video vào thiết bị"},
-            handler=self._get_step_handler(STEP_PREPARE_VIDEO),
-            payload=payload,
-            auto_log_context=auto_log_context,
-        )
+        main_error: Exception | None = None
 
-        await self._run_step(
-            step={"key": STEP_OPEN_UPLOAD_FLOW, "name": "Mở màn đăng video"},
-            handler=self._get_step_handler(STEP_OPEN_UPLOAD_FLOW),
-            payload=payload,
-            auto_log_context=auto_log_context,
-        )
-        await self._run_step(
-            step={"key": STEP_SELECT_VIDEO, "name": "Chọn video từ thư viện"},
-            handler=self._get_step_handler(STEP_SELECT_VIDEO),
-            payload=payload,
-            auto_log_context=auto_log_context,
-        )
+        try:
+            for step in get_main_steps():
+                await self._run_step(
+                    step=step,
+                    handler=self._get_step_handler(str(step["key"])),
+                    payload=payload,
+                    auto_log_context=auto_log_context,
+                )
+        except Exception as exc:
+            main_error = exc
+            raise
+        finally:
+            await self._run_cleanup(payload, auto_log_context, main_error)
 
         self._logger.success(
             component=AutomationLogComponent.SHOPEE_BOT,
@@ -145,6 +163,12 @@ class ShopeeUploadRunner:
             STEP_PREPARE_VIDEO: prepare_video.run,
             STEP_OPEN_UPLOAD_FLOW: open_upload_flow.run,
             STEP_SELECT_VIDEO: select_video.run,
+            STEP_INPUT_HASHTAG: input_hashtag.run,
+            STEP_EDIT_VIDEO_SETTINGS: edit_video_settings.run,
+            STEP_ATTACH_PRODUCTS: attach_products.run,
+            STEP_SUBMIT_VIDEO: submit_video.run,
+            STEP_WAIT_PUBLISH_RESULT: wait_publish_result.run,
+            STEP_CLEANUP_DEVICE: cleanup_device.run,
         }
 
         if step_key not in mapping:
@@ -155,6 +179,44 @@ class ShopeeUploadRunner:
             )
 
         return mapping[step_key]
+
+    async def _run_cleanup(
+        self,
+        payload: ShopeeUploadPayload,
+        auto_log_context=None,
+        main_error: Exception | None = None,
+    ) -> None:
+        cleanup_step = get_cleanup_step()
+
+        try:
+            await self._run_step(
+                step=cleanup_step,
+                handler=self._get_step_handler(str(cleanup_step["key"])),
+                payload=payload,
+                auto_log_context=auto_log_context,
+            )
+        except Exception as exc:
+            self._logger.warning(
+                component=AutomationLogComponent.SHOPEE_BOT,
+                event="cleanup_failed",
+                message=f"Cleanup device failed: {exc}",
+                deviceId=payload.device_id,
+                meta={
+                    "executionId": payload.execution_id,
+                    "videoId": payload.video_id,
+                    "error": str(exc),
+                    "mainError": str(main_error) if main_error else None,
+                },
+            )
+
+            if auto_log_context is not None:
+                await auto_log_context.warning(
+                    event="cleanup_failed",
+                    message=f"Dọn dẹp thiết bị thất bại: {exc}",
+                    step_key=str(cleanup_step["key"]),
+                    reason="cleanup_failed",
+                    meta={"exceptionType": type(exc).__name__},
+                )
 
     async def stop_device(self, device_id: str) -> None:
         connection = self._connections.get(device_id)
