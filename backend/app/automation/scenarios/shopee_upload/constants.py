@@ -30,7 +30,7 @@ TIMEOUT: dict[str, dict[str, float]] = {
     },
     STEP_OPEN_UPLOAD_FLOW: {
         "app_start_wait_sec": 2.0,
-        "after_video_tab_wait_sec": 2.0,
+        "after_video_tab_wait_sec": 1.0,
         "after_profile_tab_wait_sec": 2.0,
     },
     STEP_SELECT_VIDEO: {
@@ -61,12 +61,12 @@ TIMEOUT: dict[str, dict[str, float]] = {
 }
 
 SHOPEE_UPLOAD_STEPS: tuple[dict[str, Any], ...] = (
-    {
-        "index": 1,
-        "key": STEP_PREPARE_VIDEO,
-        "name": "Đẩy video vào thiết bị",
-        "type": "adb",
-    },
+    # {
+    #     "index": 1,
+    #     "key": STEP_PREPARE_VIDEO,
+    #     "name": "Đẩy video vào thiết bị",
+    #     "type": "adb",
+    # },
     {
         "index": 2,
         "key": STEP_OPEN_UPLOAD_FLOW,

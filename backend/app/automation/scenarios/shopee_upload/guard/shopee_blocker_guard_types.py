@@ -38,8 +38,8 @@ class ShopeeBlockerDetectionResult:
 
 @dataclass
 class ShopeeBlockerGuardOptions:
-    max_close_attempts: int = 3
-    after_close_sleep_ms_min: int = 500
-    after_close_sleep_ms_max: int = 1200
+    max_close_attempts: int = 2
+    after_close_sleep_ms_min: int = 200
+    after_close_sleep_ms_max: int = 500
     enable_log: bool = True
     dump_on_failed_close: bool = False
