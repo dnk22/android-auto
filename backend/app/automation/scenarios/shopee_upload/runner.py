@@ -8,10 +8,10 @@ import uiautomator2 as u2
 
 from app.automation.logging.system_logger import AutomationLogComponent, AutomationSystemLogger
 
-from .constants import STEP_OPEN_UPLOAD_FLOW, STEP_SELECT_VIDEO
+from .constants import STEP_OPEN_UPLOAD_FLOW, STEP_PREPARE_VIDEO, STEP_SELECT_VIDEO
 from .exceptions import PauseRequiredException, StepFailedException
 from .payload import ShopeeUploadPayload
-from .steps import open_upload_flow, select_video
+from .steps import open_upload_flow, prepare_video, select_video
 
 StepHandler = Callable[[ShopeeUploadPayload, Any], Awaitable[None]]
 
@@ -69,6 +69,13 @@ class ShopeeUploadRunner:
                 "products": payload.products,
                 "hashtag": payload.hashtag,
             },
+        )
+
+        await self._run_step(
+            step={"key": STEP_PREPARE_VIDEO, "name": "Đẩy video vào thiết bị"},
+            handler=self._get_step_handler(STEP_PREPARE_VIDEO),
+            payload=payload,
+            auto_log_context=auto_log_context,
         )
 
         await self._run_step(
@@ -135,6 +142,7 @@ class ShopeeUploadRunner:
 
     def _get_step_handler(self, step_key: str) -> StepHandler:
         mapping: dict[str, StepHandler] = {
+            STEP_PREPARE_VIDEO: prepare_video.run,
             STEP_OPEN_UPLOAD_FLOW: open_upload_flow.run,
             STEP_SELECT_VIDEO: select_video.run,
         }
