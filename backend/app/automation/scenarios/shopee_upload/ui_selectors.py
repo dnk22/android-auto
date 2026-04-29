@@ -74,8 +74,8 @@ class ShopeeUiSelectors:
         UiSelector(text_contains="Thêm"),
         UiSelector(description_contains="Thêm"),
     ]
-
+    # submit
     SUBMIT_BUTTON = [
+        UiSelector(resource_id="com.shopee.vn.dfpluginshopee16:id/btn_post"),
         UiSelector(text_contains="Đăng"),
-        UiSelector(description_contains="Đăng"),
     ]

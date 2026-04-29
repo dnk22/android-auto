@@ -12,7 +12,7 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
     if auto_log_context is not None:
         await auto_log_context.info(
             event="cleanup_device_mock",
-            message="Dọn dẹp thiết bị và quay về màn hình chính",
+            message="Dọn dẹp thiết bị",
             step_key=STEP_CLEANUP_DEVICE,
         )
 
@@ -39,12 +39,3 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
                     step_key=STEP_CLEANUP_DEVICE,
                     meta={"deviceVideoPath": device_video_path},
                 )
-
-    if payload.connection is not None:
-        try:
-            await asyncio.to_thread(payload.connection.press, "home")
-        except Exception:
-            pass
-
-    await wait_seconds(TIMEOUT[STEP_CLEANUP_DEVICE]["post_cleanup_wait_sec"])
-

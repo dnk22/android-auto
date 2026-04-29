@@ -106,17 +106,28 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
         payload.connection,
         ShopeeUiSelectors.VIDEO_TAB,
         label="icon Live/Video ở bottom bar",
-        timeout_sec=6.0,
         ctx=ctx,
     )
 
     await asyncio.sleep(TIMEOUT[STEP_OPEN_UPLOAD_FLOW]["after_video_tab_wait_sec"])
+    
+    closed_count = await asyncio.to_thread(
+        close_shopee_blockers_if_any,
+        payload.connection,
+    )
+
+    if auto_log_context is not None:
+        await auto_log_context.info(
+            event="open_upload_flow_guard_checked",
+            message="Đã check/close blocker trước khi thao tác tab",
+            step_key=STEP_OPEN_UPLOAD_FLOW,
+            meta={"closedCount": closed_count},
+        )
 
     await click_first_match(
         payload.connection,
         ShopeeUiSelectors.PROFILE_TAB,
-        label="tab Profile ở bottom bar",
-        timeout_sec=6.0,
+        label="tab Profile ở trên cùng",
         ctx=ctx,
     )
 

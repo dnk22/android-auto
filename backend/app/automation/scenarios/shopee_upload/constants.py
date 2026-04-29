@@ -29,20 +29,20 @@ TIMEOUT: dict[str, dict[str, float]] = {
         "media_scan_wait_sec": MEDIA_SCAN_WAIT_SECONDS,
     },
     STEP_OPEN_UPLOAD_FLOW: {
-        "app_start_wait_sec": 5.0,
-        "after_video_tab_wait_sec": 5.0,
+        "app_start_wait_sec": 2.0,
+        "after_video_tab_wait_sec": 3.0,
         "after_profile_tab_wait_sec": 3.0,
     },
     STEP_SELECT_VIDEO: {
         "before_upload_button_wait_sec": 3.0,
         "after_upload_button_wait_sec": 3.0,
-        "after_gallery_select_wait_sec": 2.0,
-        "after_first_video_wait_sec": 2.0,
-    },
-    STEP_INPUT_HASHTAG: {
-        "wait_sec": 1,
+        "after_gallery_select_wait_sec": 1.0,
+        "after_first_video_wait_sec": 1.0,
     },
     STEP_EDIT_VIDEO_SETTINGS: {
+        "wait_sec": 1,
+    },
+    STEP_INPUT_HASHTAG: {
         "wait_sec": 1,
     },
     STEP_ATTACH_PRODUCTS: {
@@ -52,7 +52,8 @@ TIMEOUT: dict[str, dict[str, float]] = {
         "wait_sec": 1,
     },
     STEP_WAIT_PUBLISH_RESULT: {
-        "default_wait_sec": 5.0,
+        "wait_sec": 1.0,
+        "after_video_upload_wait_sec": 20.0,
     },
     STEP_CLEANUP_DEVICE: {
         "post_cleanup_wait_sec": 0.3,
@@ -96,25 +97,25 @@ SHOPEE_UPLOAD_STEPS: tuple[dict[str, Any], ...] = (
     #     "name": "Gắn sản phẩm",
     #     "type": "u2",
     # },
-    # {
-    #     "index": 7,
-    #     "key": STEP_SUBMIT_VIDEO,
-    #     "name": "Đăng video",
-    #     "type": "u2",
-    # },
-    # {
-    #     "index": 8,
-    #     "key": STEP_WAIT_PUBLISH_RESULT,
-    #     "name": "Chờ đăng video hoàn tất",
-    #     "type": "wait",
-    # },
-    # {
-    #     "index": 9,
-    #     "key": STEP_CLEANUP_DEVICE,
-    #     "name": "Dọn dẹp thiết bị",
-    #     "type": "adb",
-    #     "always_run": True,
-    # },
+    {
+        "index": 7,
+        "key": STEP_SUBMIT_VIDEO,
+        "name": "Đăng video",
+        "type": "u2",
+    },
+    {
+        "index": 8,
+        "key": STEP_WAIT_PUBLISH_RESULT,
+        "name": "Chờ đăng video hoàn tất",
+        "type": "wait",
+    },
+    {
+        "index": 9,
+        "key": STEP_CLEANUP_DEVICE,
+        "name": "Dọn dẹp thiết bị",
+        "type": "adb",
+        "always_run": True,
+    },
 )
 
 
