@@ -29,30 +29,30 @@ TIMEOUT: dict[str, dict[str, float]] = {
         "media_scan_wait_sec": MEDIA_SCAN_WAIT_SECONDS,
     },
     STEP_OPEN_UPLOAD_FLOW: {
-        "app_start_wait_sec": 3.0,
-        "after_video_tab_wait_sec": 3.0,
-        "after_profile_tab_wait_sec": 2.0,
+        "app_start_wait_sec": 5.0,
+        "after_video_tab_wait_sec": 5.0,
+        "after_profile_tab_wait_sec": 3.0,
     },
     STEP_SELECT_VIDEO: {
         "before_upload_button_wait_sec": 3.0,
         "after_upload_button_wait_sec": 3.0,
-        "after_gallery_select_wait_sec": 3.0,
+        "after_gallery_select_wait_sec": 2.0,
         "after_first_video_wait_sec": 2.0,
     },
     STEP_INPUT_HASHTAG: {
-        "wait_sec": 0.3,
+        "wait_sec": 1,
     },
     STEP_EDIT_VIDEO_SETTINGS: {
-        "wait_sec": 0.3,
+        "wait_sec": 1,
     },
     STEP_ATTACH_PRODUCTS: {
-        "per_product_wait_sec": 0.2,
+        "per_product_wait_sec": 0.5,
     },
     STEP_SUBMIT_VIDEO: {
-        "wait_sec": 0.3,
+        "wait_sec": 1,
     },
     STEP_WAIT_PUBLISH_RESULT: {
-        "default_wait_sec": 3.0,
+        "default_wait_sec": 5.0,
     },
     STEP_CLEANUP_DEVICE: {
         "post_cleanup_wait_sec": 0.3,
@@ -80,16 +80,16 @@ SHOPEE_UPLOAD_STEPS: tuple[dict[str, Any], ...] = (
     },
     {
         "index": 4,
+        "key": STEP_EDIT_VIDEO_SETTINGS,
+        "name": "Chỉnh sửa video và thêm nhạc",
+        "type": "u2",
+    },
+    {
+        "index": 5,
         "key": STEP_INPUT_HASHTAG,
         "name": "Nhập hashtag",
         "type": "input",
     },
-    # {
-    #     "index": 5,
-    #     "key": STEP_EDIT_VIDEO_SETTINGS,
-    #     "name": "Chỉnh sửa video và thêm nhạc",
-    #     "type": "u2",
-    # },
     # {
     #     "index": 6,
     #     "key": STEP_ATTACH_PRODUCTS,

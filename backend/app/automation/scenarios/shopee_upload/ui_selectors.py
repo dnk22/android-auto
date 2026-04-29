@@ -35,11 +35,30 @@ class ShopeeUiSelectors:
     
     NEXT_BUTTON = [
         UiSelector(resource_id="com.shopee.vn:id/tv_pick_next"),
+        UiSelector(resource_id="com.shopee.vn:id/tv_compress"),
         UiSelector(text_contains="Tiếp theo"),
     ]
-
+    
+    # edit video settings selectors
+    ADD_MUSIC_BUTTON = [
+        UiSelector(resource_id="com.shopee.vn:id/ll_music"),
+        UiSelector(resource_id="com.shopee.vn:id/tv_music"),
+        UiSelector(text_contains="Thêm nhạc"),
+    ]
+    
+    IMPROVE_VIDEO_BUTTON = [
+        UiSelector(text_contains="Cải thiện"),
+        UiSelector(class_name="android.widget.LinearLayout", index=3),
+    ]
+    
+    SELECT_MUSIC_FIRST_ITEM = [
+        UiSelector(resource_id="com.shopee.vn:id/cl_container"),
+        UiSelector(class_name="android.view.ViewGroup", index=0),
+    ]
+    
+    # input hashtag selectors
     HASHTAG_INPUT = [
-        UiSelector(class_name="android.widget.EditText"),
+        UiSelector(resource_id="com.shopee.vn.dfpluginshopee16:id/ll_caption"),
     ]
 
     PRODUCT_BUTTON = [
