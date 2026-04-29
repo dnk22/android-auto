@@ -8,16 +8,10 @@ import uiautomator2 as u2
 
 from app.automation.logging.system_logger import AutomationLogComponent, AutomationSystemLogger
 
-from .constants import (
-    STEP_OPEN_UPLOAD_FLOW,
-    STEP_PREPARE_VIDEO,
-)
+from .constants import STEP_OPEN_UPLOAD_FLOW
 from .exceptions import PauseRequiredException, StepFailedException
 from .payload import ShopeeUploadPayload
-from .steps import (
-    open_upload_flow,
-    prepare_video,
-)
+from .steps import open_upload_flow
 
 StepHandler = Callable[[ShopeeUploadPayload, Any], Awaitable[None]]
 
@@ -77,17 +71,13 @@ class ShopeeUploadRunner:
             },
         )
 
-        steps = (
-            {"key": STEP_PREPARE_VIDEO, "name": "Đẩy video vào thiết bị"},
-            {"key": STEP_OPEN_UPLOAD_FLOW, "name": "Mở màn đăng video"},
+        # Debug mode: run only open_upload_flow.
+        await self._run_step(
+            step={"key": STEP_OPEN_UPLOAD_FLOW, "name": "Mở màn đăng video"},
+            handler=self._get_step_handler(STEP_OPEN_UPLOAD_FLOW),
+            payload=payload,
+            auto_log_context=auto_log_context,
         )
-        for step in steps:
-            await self._run_step(
-                step=step,
-                handler=self._get_step_handler(str(step["key"])),
-                payload=payload,
-                auto_log_context=auto_log_context,
-            )
 
         self._logger.success(
             component=AutomationLogComponent.SHOPEE_BOT,
@@ -140,7 +130,6 @@ class ShopeeUploadRunner:
 
     def _get_step_handler(self, step_key: str) -> StepHandler:
         mapping: dict[str, StepHandler] = {
-            STEP_PREPARE_VIDEO: prepare_video.run,
             STEP_OPEN_UPLOAD_FLOW: open_upload_flow.run,
         }
 
