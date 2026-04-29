@@ -46,6 +46,7 @@ class SheetService:
         self._debounce_tasks: dict[str, asyncio.Task[None]] = {}
         self._lock = asyncio.Lock()
         self._db_path = storage_path / "automation.db"
+        self._session_path = storage_path / "data.json"
         self._db_ready = False
 
         self._storage_service: StorageServiceProtocol | None = None
@@ -54,6 +55,7 @@ class SheetService:
 
     async def startup(self) -> None:
         await self._ensure_db_ready()
+        await self._load_session_state()
         async with self._lock:
             repaired = await asyncio.to_thread(self._repair_orphan_sheets_sync)
         if repaired > 0:
@@ -105,6 +107,35 @@ class SheetService:
         async with self._lock:
             return self._session.model_copy(deep=True)
 
+    async def _load_session_state(self) -> None:
+        hashtag_common = await asyncio.to_thread(self._read_session_state_sync)
+        if hashtag_common is None:
+            return
+        async with self._lock:
+            self._session.hashtagCommon = hashtag_common
+
+    def _read_session_state_sync(self) -> str | None:
+        if not self._session_path.exists():
+            return None
+        try:
+            raw = self._session_path.read_text(encoding="utf-8")
+            data = json.loads(raw)
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(data, dict):
+            return None
+        return self._normalize_optional_text(data.get("hashtagCommon"))
+
+    def _write_session_state_sync(self, hashtag_common: str | None) -> None:
+        payload = {"hashtagCommon": hashtag_common}
+        self._session_path.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = self._session_path.with_suffix(".tmp")
+        temp_path.write_text(
+            json.dumps(payload, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        temp_path.replace(self._session_path)
+
     async def update_session(
         self,
         *,
@@ -138,6 +169,10 @@ class SheetService:
         if hashtag_common_changed:
             await asyncio.to_thread(
                 self._set_all_rows_hashtag_common_sync,
+                session_snapshot.hashtagCommon,
+            )
+            await asyncio.to_thread(
+                self._write_session_state_sync,
                 session_snapshot.hashtagCommon,
             )
 
