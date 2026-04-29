@@ -682,6 +682,88 @@ class SheetService:
                 ON device_locks(execution_id)
                 """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS execution_steps (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    execution_id TEXT NOT NULL,
+                    step_index INTEGER NOT NULL,
+                    step_key TEXT NOT NULL,
+                    step_name TEXT NOT NULL,
+                    step_type TEXT,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    device_id TEXT,
+                    started_at INTEGER,
+                    finished_at INTEGER,
+                    duration_ms INTEGER,
+                    error_message TEXT,
+                    meta TEXT,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(execution_id, step_index)
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS execution_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    execution_id TEXT NOT NULL,
+                    step_id INTEGER,
+                    job_id TEXT,
+                    video_id TEXT,
+                    device_id TEXT,
+                    level TEXT NOT NULL,
+                    event TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    step_index INTEGER,
+                    step_key TEXT,
+                    step_name TEXT,
+                    source TEXT,
+                    component TEXT,
+                    reason TEXT,
+                    meta TEXT,
+                    screenshot_path TEXT,
+                    created_at INTEGER NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_execution_steps_execution_index
+                ON execution_steps(execution_id, step_index)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_execution_steps_status
+                ON execution_steps(status)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_execution_logs_execution_created
+                ON execution_logs(execution_id, created_at)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_execution_logs_device_created
+                ON execution_logs(device_id, created_at)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_execution_logs_step_key_created
+                ON execution_logs(step_key, created_at)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_execution_logs_level_created
+                ON execution_logs(level, created_at)
+                """
+            )
 
             legacy_jobs_exists = connection.execute(
                 "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'jobs'",

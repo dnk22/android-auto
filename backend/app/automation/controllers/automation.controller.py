@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
@@ -9,6 +10,7 @@ from app.automation.schemas.automation_schema import (
     BulkUpdateSheetRequest,
     CreateVideoFolderRequest,
     CreateVideoFolderResponse,
+    ExecutionAutoLogResponse,
     OpenVideoFolderResponse,
     RenameFileRequest,
     RenameFileResponse,
@@ -21,7 +23,15 @@ from app.automation.schemas.automation_schema import (
 )
 
 
-def build_router(sheet_service, storage_service, queue_service, watcher_service=None) -> APIRouter:
+def build_router(
+    sheet_service,
+    storage_service,
+    queue_service,
+    execution_service=None,
+    execution_step_service=None,
+    execution_log_service=None,
+    watcher_service=None,
+) -> APIRouter:
     router = APIRouter(tags=["automation"])
 
     async def _sync_storage_watcher(_: str) -> None:
@@ -110,6 +120,30 @@ def build_router(sheet_service, storage_service, queue_service, watcher_service=
             return {"ok": True, "job": job}
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.get("/automation/executions/{executionId}/auto-log", response_model=ExecutionAutoLogResponse)
+    async def get_execution_auto_log(executionId: str) -> ExecutionAutoLogResponse:
+        if execution_service is None or execution_step_service is None or execution_log_service is None:
+            raise HTTPException(status_code=500, detail="auto log service is not available")
+        execution = await asyncio.to_thread(execution_service.get_by_id, executionId)
+        steps = await execution_step_service.get_steps_by_execution(executionId)
+        logs = await execution_log_service.get_logs_by_execution(executionId)
+        execution_payload = None
+        if execution is not None:
+            execution_payload = {
+                "id": execution.id,
+                "jobId": execution.jobId,
+                "videoId": execution.videoId,
+                "status": execution.status,
+                "assignedDevice": execution.assignedDevice,
+                "startedAt": execution.startedAt,
+                "finishedAt": execution.finishedAt,
+            }
+        return ExecutionAutoLogResponse(
+            execution=execution_payload,
+            steps=steps,
+            logs=logs,
+        )
 
     @router.get("/automation/session", response_model=SessionResponse)
     async def get_session() -> SessionResponse:

@@ -30,6 +30,7 @@ class ShopeeBot:
         video_path: str,
         products: list[str],
         hashtag: str,
+        auto_log_context=None,
     ) -> None:
         try:
             _ = await self._connect(device_id)
@@ -53,8 +54,34 @@ class ShopeeBot:
         connection = self._connections[device_id]
 
         try:
+            if auto_log_context is not None:
+                await auto_log_context.start_step("push_video", "Dang day video vao thiet bi")
+                await asyncio.sleep(0.3)
+                await auto_log_context.finish_step("push_video", "Day video vao thiet bi thanh cong")
+
+                await auto_log_context.start_step("open_shopee", "Dang mo app Shopee")
             await asyncio.to_thread(connection.app_start, self._SHOPEE_PACKAGE, stop=True)
             await asyncio.sleep(1.5)
+            if auto_log_context is not None:
+                await auto_log_context.finish_step("open_shopee", "Mo app Shopee thanh cong")
+
+                await auto_log_context.start_step("click_upload", "Dang bam nut dang video")
+                await asyncio.sleep(0.3)
+                await auto_log_context.finish_step("click_upload", "Bam nut dang video thanh cong")
+
+                await auto_log_context.start_step("select_video", "Dang chon video")
+                await asyncio.sleep(0.3)
+                await auto_log_context.finish_step("select_video", "Chon video thanh cong")
+
+                await auto_log_context.start_step("input_products", "Dang gan san pham")
+                await asyncio.sleep(0.3)
+                await auto_log_context.finish_step("input_products", "Gan san pham thanh cong")
+
+                await auto_log_context.start_step("input_hashtag", "Dang nhap hashtag")
+                await asyncio.sleep(0.3)
+                await auto_log_context.finish_step("input_hashtag", "Nhap hashtag thanh cong")
+
+                await auto_log_context.start_step("submit", "Dang dang video")
 
             width, height = await asyncio.to_thread(connection.window_size)
             center_x = int(width * 0.5)
@@ -72,7 +99,19 @@ class ShopeeBot:
 
             await asyncio.to_thread(connection.press, "home")
             await asyncio.sleep(0.4)
+            if auto_log_context is not None:
+                await auto_log_context.finish_step("submit", "Dang video thanh cong")
         except Exception as exc:  # noqa: BLE001
+            if auto_log_context is not None:
+                running_step = await auto_log_context.step_service.get_current_running_step(
+                    auto_log_context.execution.id,
+                )
+                if running_step is not None:
+                    await auto_log_context.fail_step(
+                        running_step["stepKey"],
+                        exc,
+                        step_name=running_step["stepName"],
+                    )
             self._logger.error(
                 component=AutomationLogComponent.SHOPEE_BOT,
                 event="bot_failed",

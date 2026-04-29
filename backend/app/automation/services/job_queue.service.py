@@ -8,6 +8,7 @@ from app.automation.constants.automation_constants import ExecutionStatus, Sheet
 from app.automation.logging.system_logger import AutomationLogComponent, AutomationSystemLogger
 from app.automation.models.job_model import AutomationJob
 from app.automation.models.runtime_job_model import RuntimeJob
+from app.automation.services.auto_log_context_service import AutoLogContext
 from app.automation.utils.validator import build_hashtag, parse_products
 
 
@@ -28,6 +29,7 @@ class ShopeeBotProtocol(Protocol):
         video_path: str,
         products: list[str],
         hashtag: str,
+        auto_log_context=None,
     ) -> None: ...
 
     async def stop_device(self, device_id: str) -> None: ...
@@ -51,6 +53,35 @@ class DeviceLockServiceProtocol(Protocol):
     def release_by_execution(self, execution_id: str) -> None: ...
 
 
+class ExecutionStepServiceProtocol(Protocol):
+    async def init_steps_for_execution(
+        self,
+        execution_id: str,
+        scenario_name: str,
+        device_id: str | None = None,
+    ) -> None: ...
+
+    async def get_current_running_step(self, execution_id: str): ...
+
+    async def mark_step_stopped(
+        self,
+        execution_id: str,
+        step_key: str,
+        reason: str | None = None,
+        meta: dict | None = None,
+    ): ...
+
+
+class ExecutionLogServiceProtocol(Protocol):
+    async def info(self, **kwargs): ...
+
+    async def success(self, **kwargs): ...
+
+    async def warning(self, **kwargs): ...
+
+    async def error(self, **kwargs): ...
+
+
 class JobQueueService:
     def __init__(
         self,
@@ -60,6 +91,8 @@ class JobQueueService:
         shopee_bot: ShopeeBotProtocol,
         execution_service: ExecutionServiceProtocol,
         device_lock_service: DeviceLockServiceProtocol,
+        execution_step_service: ExecutionStepServiceProtocol,
+        execution_log_service: ExecutionLogServiceProtocol,
         logger: AutomationSystemLogger,
     ) -> None:
         self._sheet_service = sheet_service
@@ -67,6 +100,8 @@ class JobQueueService:
         self._shopee_bot = shopee_bot
         self._execution_service = execution_service
         self._device_lock_service = device_lock_service
+        self._execution_step_service = execution_step_service
+        self._execution_log_service = execution_log_service
         self._logger = logger
 
         self._queue: asyncio.Queue[RuntimeJob] = asyncio.Queue()
@@ -164,6 +199,17 @@ class JobQueueService:
         await asyncio.to_thread(self._execution_service.mark_stopped, job_id)
         await self._sheet_service.on_job_status(execution.videoId, SheetStatus.STOPPED)
         await asyncio.to_thread(self._device_lock_service.release_by_execution, job_id)
+        await self._execution_log_service.warning(
+            execution_id=execution.id,
+            event="execution_stopped",
+            message="Automation da dung",
+            job_id=execution.jobId,
+            video_id=execution.videoId,
+            device_id=execution.assignedDevice,
+            source="worker",
+            component="job_queue",
+            reason="user_request",
+        )
         self._logger.warning(
             component=AutomationLogComponent.JOB_QUEUE,
             event="runtime_job_stopped",
@@ -217,18 +263,6 @@ class JobQueueService:
             )
             return
 
-        self._logger.info(
-            component=AutomationLogComponent.JOB_QUEUE,
-            event="runtime_job_picked",
-            message="Worker picked runtime job",
-            deviceId=execution.assignedDevice or runtime_job.assigned_device,
-            meta={
-                "executionId": execution.id,
-                "jobId": execution.jobId,
-                "videoId": execution.videoId,
-            },
-        )
-
         row = await self._sheet_service.get_row(execution.videoId)
         if row is None:
             await asyncio.to_thread(
@@ -236,33 +270,57 @@ class JobQueueService:
                 execution.id,
                 "Sheet item not found",
             )
+            await self._execution_log_service.error(
+                execution_id=execution.id,
+                event="execution_error",
+                message="Sheet item not found",
+                job_id=execution.jobId,
+                video_id=execution.videoId,
+                device_id=execution.assignedDevice,
+                source="worker",
+                component="job_queue",
+                reason="step_failed",
+            )
             await asyncio.to_thread(
                 self._device_lock_service.release_by_execution,
                 runtime_job.execution_id,
-            )
-            self._logger.error(
-                component=AutomationLogComponent.JOB_QUEUE,
-                event="runtime_job_failed",
-                message="Runtime job failed: Sheet item not found",
-                deviceId=execution.assignedDevice or runtime_job.assigned_device,
-                meta={"executionId": execution.id, "videoId": execution.videoId},
             )
             return
 
         if row.status != SheetStatus.QUEUED:
             await asyncio.to_thread(self._execution_service.mark_stopped, execution.id)
+            await self._execution_log_service.warning(
+                execution_id=execution.id,
+                event="execution_stopped",
+                message="Sheet khong con queued",
+                job_id=execution.jobId,
+                video_id=execution.videoId,
+                device_id=execution.assignedDevice,
+                source="worker",
+                component="job_queue",
+                reason="sheet_status_stopped",
+            )
             await asyncio.to_thread(
                 self._device_lock_service.release_by_execution,
                 runtime_job.execution_id,
             )
-            self._logger.warning(
-                component=AutomationLogComponent.JOB_QUEUE,
-                event="runtime_job_stopped",
-                message="Runtime job stopped because sheet row is no longer queued",
-                deviceId=execution.assignedDevice or runtime_job.assigned_device,
-                meta={"executionId": execution.id, "videoId": execution.videoId},
-            )
             return
+
+        await self._execution_step_service.init_steps_for_execution(
+            execution.id,
+            execution.scenarioName,
+            execution.assignedDevice,
+        )
+        await self._execution_log_service.info(
+            execution_id=execution.id,
+            event="execution_started",
+            message="Bat dau chay automation",
+            job_id=execution.jobId,
+            video_id=execution.videoId,
+            device_id=execution.assignedDevice,
+            source="worker",
+            component="job_queue",
+        )
 
         marked_running = await asyncio.to_thread(self._execution_service.mark_running, execution.id)
         if marked_running is None:
@@ -271,13 +329,6 @@ class JobQueueService:
                 runtime_job.execution_id,
             )
             return
-        self._logger.success(
-            component=AutomationLogComponent.JOB_QUEUE,
-            event="runtime_job_started",
-            message="Runtime job started",
-            deviceId=execution.assignedDevice or runtime_job.assigned_device,
-            meta={"executionId": execution.id, "videoId": execution.videoId},
-        )
         await self._sheet_service.on_job_status(execution.videoId, SheetStatus.RUNNING)
         async with self._lock:
             cached = self._jobs.get(execution.id)
@@ -295,23 +346,23 @@ class JobQueueService:
 
         video_path = await self._storage_service.resolve_video_path(row.videoName)
         if video_path is None:
-            await asyncio.to_thread(
-                self._execution_service.mark_error,
-                execution.id,
-                "video file missing",
-            )
+            await asyncio.to_thread(self._execution_service.mark_error, execution.id, "video file missing")
             await self._sheet_service.on_job_status(execution.videoId, SheetStatus.ERROR)
+            await self._execution_log_service.error(
+                execution_id=execution.id,
+                event="execution_error",
+                message="Video file missing",
+                job_id=execution.jobId,
+                video_id=execution.videoId,
+                device_id=execution.assignedDevice,
+                source="worker",
+                component="job_queue",
+                reason="step_failed",
+            )
             await asyncio.to_thread(self._device_lock_service.release_by_execution, execution.id)
             async with self._lock:
                 if execution.id in self._jobs:
                     self._jobs[execution.id].status = "error"
-            self._logger.error(
-                component=AutomationLogComponent.JOB_QUEUE,
-                event="runtime_job_failed",
-                message="Runtime job failed: video file missing",
-                deviceId=execution.assignedDevice or runtime_job.assigned_device,
-                meta={"executionId": execution.id, "videoId": execution.videoId},
-            )
             return
 
         products = parse_products(row.products)
@@ -320,33 +371,48 @@ class JobQueueService:
         if not products:
             await asyncio.to_thread(self._execution_service.mark_error, execution.id, "products is empty")
             await self._sheet_service.on_job_status(execution.videoId, SheetStatus.ERROR)
+            await self._execution_log_service.error(
+                execution_id=execution.id,
+                event="execution_error",
+                message="Products is empty",
+                job_id=execution.jobId,
+                video_id=execution.videoId,
+                device_id=execution.assignedDevice,
+                source="worker",
+                component="job_queue",
+                reason="step_failed",
+            )
             await asyncio.to_thread(self._device_lock_service.release_by_execution, execution.id)
             async with self._lock:
                 if execution.id in self._jobs:
                     self._jobs[execution.id].status = "error"
-            self._logger.error(
-                component=AutomationLogComponent.JOB_QUEUE,
-                event="runtime_job_failed",
-                message="Runtime job failed: products is empty",
-                deviceId=execution.assignedDevice or runtime_job.assigned_device,
-                meta={"executionId": execution.id, "videoId": execution.videoId},
-            )
             return
         if not hashtag:
             await asyncio.to_thread(self._execution_service.mark_error, execution.id, "hashtag is empty")
             await self._sheet_service.on_job_status(execution.videoId, SheetStatus.ERROR)
+            await self._execution_log_service.error(
+                execution_id=execution.id,
+                event="execution_error",
+                message="Hashtag is empty",
+                job_id=execution.jobId,
+                video_id=execution.videoId,
+                device_id=execution.assignedDevice,
+                source="worker",
+                component="job_queue",
+                reason="step_failed",
+            )
             await asyncio.to_thread(self._device_lock_service.release_by_execution, execution.id)
             async with self._lock:
                 if execution.id in self._jobs:
                     self._jobs[execution.id].status = "error"
-            self._logger.error(
-                component=AutomationLogComponent.JOB_QUEUE,
-                event="runtime_job_failed",
-                message="Runtime job failed: hashtag is empty",
-                deviceId=execution.assignedDevice or runtime_job.assigned_device,
-                meta={"executionId": execution.id, "videoId": execution.videoId},
-            )
             return
+
+        auto_log_context = AutoLogContext(
+            execution=execution,
+            row=row,
+            step_service=self._execution_step_service,
+            log_service=self._execution_log_service,
+        )
 
         try:
             await self._shopee_bot.run(
@@ -354,49 +420,69 @@ class JobQueueService:
                 video_path=str(video_path),
                 products=products,
                 hashtag=hashtag,
+                auto_log_context=auto_log_context,
             )
         except asyncio.CancelledError:
             if runtime_job.execution_id not in self._stopped_execution_ids:
                 await asyncio.to_thread(self._execution_service.mark_stopped, execution.id)
                 await self._sheet_service.on_job_status(execution.videoId, SheetStatus.STOPPED)
+                running_step = await self._execution_step_service.get_current_running_step(execution.id)
+                if running_step is not None:
+                    await self._execution_step_service.mark_step_stopped(
+                        execution.id,
+                        running_step["stepKey"],
+                        reason="worker_cancelled",
+                    )
+                await self._execution_log_service.warning(
+                    execution_id=execution.id,
+                    event="execution_stopped",
+                    message="Automation da dung",
+                    job_id=execution.jobId,
+                    video_id=execution.videoId,
+                    device_id=execution.assignedDevice,
+                    source="worker",
+                    component="job_queue",
+                    reason="worker_cancelled",
+                )
             await asyncio.to_thread(self._device_lock_service.release_by_execution, execution.id)
             async with self._lock:
                 if execution.id in self._jobs:
                     self._jobs[execution.id].status = "stopped"
-            self._logger.warning(
-                component=AutomationLogComponent.JOB_QUEUE,
-                event="runtime_job_stopped",
-                message="Runtime job stopped",
-                deviceId=execution.assignedDevice or runtime_job.assigned_device,
-                meta={"executionId": execution.id, "videoId": execution.videoId},
-            )
             raise
         except Exception as exc:  # noqa: BLE001
             await asyncio.to_thread(self._execution_service.mark_error, execution.id, str(exc))
             await self._sheet_service.on_job_status(execution.videoId, SheetStatus.ERROR)
+            await self._execution_log_service.error(
+                execution_id=execution.id,
+                event="execution_error",
+                message=f"Automation loi: {str(exc)}",
+                job_id=execution.jobId,
+                video_id=execution.videoId,
+                device_id=execution.assignedDevice,
+                source="worker",
+                component="job_queue",
+                reason="step_failed",
+                meta={"exceptionType": type(exc).__name__},
+            )
             await asyncio.to_thread(self._device_lock_service.release_by_execution, execution.id)
             async with self._lock:
                 if execution.id in self._jobs:
                     self._jobs[execution.id].status = "error"
-            self._logger.error(
-                component=AutomationLogComponent.JOB_QUEUE,
-                event="runtime_job_failed",
-                message=f"Runtime job failed: {exc}",
-                deviceId=execution.assignedDevice or runtime_job.assigned_device,
-                meta={"executionId": execution.id, "videoId": execution.videoId, "reason": str(exc)},
-            )
             return
 
         await asyncio.to_thread(self._execution_service.mark_done, execution.id)
         await self._sheet_service.on_job_status(execution.videoId, SheetStatus.DONE)
+        await self._execution_log_service.success(
+            execution_id=execution.id,
+            event="execution_done",
+            message="Automation hoan tat",
+            job_id=execution.jobId,
+            video_id=execution.videoId,
+            device_id=execution.assignedDevice,
+            source="worker",
+            component="job_queue",
+        )
         await asyncio.to_thread(self._device_lock_service.release_by_execution, execution.id)
         async with self._lock:
             if execution.id in self._jobs:
                 self._jobs[execution.id].status = "done"
-        self._logger.success(
-            component=AutomationLogComponent.JOB_QUEUE,
-            event="runtime_job_finished",
-            message="Runtime job finished",
-            deviceId=execution.assignedDevice or runtime_job.assigned_device,
-            meta={"executionId": execution.id, "videoId": execution.videoId},
-        )

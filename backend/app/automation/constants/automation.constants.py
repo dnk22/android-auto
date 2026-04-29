@@ -28,6 +28,35 @@ class ExecutionStatus:
     ERROR = "error"
 
 
+class ExecutionLogLevel:
+    DEBUG = "debug"
+    INFO = "info"
+    SUCCESS = "success"
+    WARNING = "warning"
+    ERROR = "error"
+
+
+class ExecutionStepStatus:
+    PENDING = "pending"
+    RUNNING = "running"
+    DONE = "done"
+    ERROR = "error"
+    SKIPPED = "skipped"
+    STOPPED = "stopped"
+
+
+class StopReason:
+    USER_REQUEST = "user_request"
+    SHEET_STATUS_STOPPED = "sheet_status_stopped"
+    EXECUTION_STATUS_STOPPED = "execution_status_stopped"
+    DEVICE_DISCONNECTED = "device_disconnected"
+    WORKER_CANCELLED = "worker_cancelled"
+    APP_SHUTDOWN = "app_shutdown"
+    BOT_REQUESTED_STOP = "bot_requested_stop"
+    STEP_FAILED = "step_failed"
+    UNKNOWN = "unknown"
+
+
 SHEET_ITEM_STATUSES = (
     SheetStatus.IDLE,
     SheetStatus.READY,
@@ -48,6 +77,33 @@ EXECUTION_STATUSES = (
     ExecutionStatus.STOPPED,
     ExecutionStatus.DONE,
     ExecutionStatus.ERROR,
+)
+
+EXECUTION_STEP_STATUSES = (
+    ExecutionStepStatus.PENDING,
+    ExecutionStepStatus.RUNNING,
+    ExecutionStepStatus.DONE,
+    ExecutionStepStatus.ERROR,
+    ExecutionStepStatus.SKIPPED,
+    ExecutionStepStatus.STOPPED,
+)
+
+EXECUTION_LOG_LEVELS = (
+    ExecutionLogLevel.DEBUG,
+    ExecutionLogLevel.INFO,
+    ExecutionLogLevel.SUCCESS,
+    ExecutionLogLevel.WARNING,
+    ExecutionLogLevel.ERROR,
+)
+
+SHOPEE_UPLOAD_STEPS = (
+    {"index": 1, "key": "push_video", "name": "Day video vao thiet bi", "type": "adb"},
+    {"index": 2, "key": "open_shopee", "name": "Mo app Shopee", "type": "u2"},
+    {"index": 3, "key": "click_upload", "name": "Bam nut dang video", "type": "u2"},
+    {"index": 4, "key": "select_video", "name": "Chon video", "type": "u2"},
+    {"index": 5, "key": "input_products", "name": "Gan san pham", "type": "u2"},
+    {"index": 6, "key": "input_hashtag", "name": "Nhap hashtag", "type": "u2"},
+    {"index": 7, "key": "submit", "name": "Dang video", "type": "u2"},
 )
 
 

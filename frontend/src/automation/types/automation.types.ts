@@ -128,3 +128,68 @@ export type StorageWsEvent =
   | StorageRowDeletedEvent
   | SheetRowUpdatedEvent
   | { event: string; ts: number; payload: Record<string, unknown> };
+
+export type AutoLogLevel = "debug" | "info" | "success" | "warning" | "error";
+
+export type AutoStepStatus =
+  | "pending"
+  | "running"
+  | "done"
+  | "error"
+  | "skipped"
+  | "stopped";
+
+export type AutoExecutionStep = {
+  id: number;
+  executionId: string;
+  stepIndex: number;
+  stepKey: string;
+  stepName: string;
+  stepType?: string | null;
+  status: AutoStepStatus;
+  deviceId?: string | null;
+  startedAt?: number | null;
+  finishedAt?: number | null;
+  durationMs?: number | null;
+  errorMessage?: string | null;
+  meta?: Record<string, unknown>;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type AutoLogEvent = {
+  id: number;
+  executionId: string;
+  stepId?: number | null;
+  jobId?: string | null;
+  videoId?: string | null;
+  deviceId?: string | null;
+  level: AutoLogLevel;
+  event: string;
+  message: string;
+  stepIndex?: number | null;
+  stepKey?: string | null;
+  stepName?: string | null;
+  source?: string | null;
+  component?: string | null;
+  reason?: string | null;
+  meta?: Record<string, unknown>;
+  screenshotPath?: string | null;
+  createdAt: number;
+};
+
+export type AutoLogExecutionSummary = {
+  id: string;
+  jobId: string;
+  videoId: string;
+  status: string;
+  assignedDevice?: string | null;
+  startedAt?: number | null;
+  finishedAt?: number | null;
+};
+
+export type ExecutionAutoLogResponse = {
+  execution: AutoLogExecutionSummary | null;
+  steps: AutoExecutionStep[];
+  logs: AutoLogEvent[];
+};

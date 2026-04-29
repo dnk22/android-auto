@@ -50,6 +50,10 @@ function isSheetRowUpdatedEvent(event: StorageWsEvent): event is SheetRowUpdated
   return event.event === "sheet_row_updated";
 }
 
+function isAutoLogEvent(event: StorageWsEvent): boolean {
+  return event.event === "auto_log_added" || event.event === "auto_step_updated";
+}
+
 function upsertRow(rows: SheetRow[], nextRow: SheetRow): SheetRow[] {
   const existingIndex = rows.findIndex((row) => row.videoId === nextRow.videoId);
   if (existingIndex === -1) {
@@ -347,6 +351,9 @@ export function useStorageEvents(wsUrl?: string): void {
           }
 
           const handled = applyStorageEventToCache(queryClient, event);
+          if (isAutoLogEvent(event)) {
+            return;
+          }
           if (!handled) {
             if (fallbackRefetchTimer) {
               clearTimeout(fallbackRefetchTimer);

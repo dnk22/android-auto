@@ -65,6 +65,10 @@ _storage_service_mod = _load_module(
     "services/storage.service.py",
     "app.automation.services.storage_service",
 )
+_auto_log_context_mod = _load_module(
+    "services/auto_log_context.service.py",
+    "app.automation.services.auto_log_context_service",
+)
 _job_queue_mod = _load_module(
     "services/job_queue.service.py",
     "app.automation.services.job_queue_service",
@@ -72,6 +76,14 @@ _job_queue_mod = _load_module(
 _execution_dispatcher_mod = _load_module(
     "services/execution_dispatcher.service.py",
     "app.automation.services.execution_dispatcher_service",
+)
+_execution_step_service_mod = _load_module(
+    "services/execution_step.service.py",
+    "app.automation.services.execution_step_service",
+)
+_execution_log_service_mod = _load_module(
+    "services/execution_log.service.py",
+    "app.automation.services.execution_log_service",
 )
 _watcher_mod = _load_module("utils/file_watcher.py", "app.automation.utils.file_watcher")
 _controller_mod = _load_module(
@@ -105,6 +117,14 @@ class AutomationRuntime:
             settings=self._settings,
             logger=self._system_logger,
         )
+        self._execution_step_service = _execution_step_service_mod.ExecutionStepService(
+            db_path=self._settings.storage_dir / "automation.db",
+            event_service=self._storage_service,
+        )
+        self._execution_log_service = _execution_log_service_mod.ExecutionLogService(
+            db_path=self._settings.storage_dir / "automation.db",
+            event_service=self._storage_service,
+        )
         self._shopee_bot = _shopee_bot_mod.ShopeeBot(
             logger=self._system_logger,
             timeout_sec=self._settings.u2_timeout_sec,
@@ -115,6 +135,8 @@ class AutomationRuntime:
             shopee_bot=self._shopee_bot,
             execution_service=self._execution_service,
             device_lock_service=self._device_lock_service,
+            execution_step_service=self._execution_step_service,
+            execution_log_service=self._execution_log_service,
             logger=self._system_logger,
         )
         self._execution_dispatcher = _execution_dispatcher_mod.ExecutionDispatcherService(
@@ -144,6 +166,9 @@ class AutomationRuntime:
             self._sheet_service,
             self._storage_service,
             self._job_queue,
+            self._execution_service,
+            self._execution_step_service,
+            self._execution_log_service,
             self._watcher,
         )
 

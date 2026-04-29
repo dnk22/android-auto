@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { AutoLogPanelPlaceholder } from "../logs/AutoLogPanelPlaceholder";
+import { AutoLogPanel } from "../logs/AutoLogPanel";
 import { SystemLogPanel } from "../logs/SystemLogPanel";
 import { useStore } from "../store/useStore";
 
@@ -52,7 +52,7 @@ export default function LogPanel(): JSX.Element {
       {activeTab === "system" ? (
         <SystemLogPanel logs={logs} onClear={clearLogs} />
       ) : (
-        <AutoLogPanelPlaceholder />
+        <AutoLogPanel />
       )}
     </section>
   );

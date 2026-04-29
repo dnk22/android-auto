@@ -2,6 +2,7 @@ import type {
   CreateVideoFolderPayload,
   CreateVideoFolderResponse,
   OpenVideoFolderResponse,
+  ExecutionAutoLogResponse,
   RenameFilePayload,
   SessionState,
   SheetRow,
@@ -129,4 +130,10 @@ export async function stopJob(jobId: string): Promise<void> {
   await requestJson<void>(`/automation/job/${encodeURIComponent(jobId)}/stop`, {
     method: "POST",
   });
+}
+
+export async function getExecutionAutoLog(executionId: string): Promise<ExecutionAutoLogResponse> {
+  return requestJson<ExecutionAutoLogResponse>(
+    `/automation/executions/${encodeURIComponent(executionId)}/auto-log`,
+  );
 }

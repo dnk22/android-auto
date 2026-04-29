@@ -90,3 +90,58 @@ class OpenVideoFolderResponse(BaseModel):
 class JobResponse(BaseModel):
     ok: bool
     job: AutomationJob
+
+
+class AutoLogExecutionSummary(BaseModel):
+    id: str
+    jobId: str
+    videoId: str
+    status: str
+    assignedDevice: str | None = None
+    startedAt: int | None = None
+    finishedAt: int | None = None
+
+
+class AutoLogStep(BaseModel):
+    id: int
+    executionId: str
+    stepIndex: int
+    stepKey: str
+    stepName: str
+    stepType: str | None = None
+    status: str
+    deviceId: str | None = None
+    startedAt: int | None = None
+    finishedAt: int | None = None
+    durationMs: int | None = None
+    errorMessage: str | None = None
+    meta: dict[str, Any] = Field(default_factory=dict)
+    createdAt: int
+    updatedAt: int
+
+
+class AutoLogEvent(BaseModel):
+    id: int
+    executionId: str
+    stepId: int | None = None
+    jobId: str | None = None
+    videoId: str | None = None
+    deviceId: str | None = None
+    level: str
+    event: str
+    message: str
+    stepIndex: int | None = None
+    stepKey: str | None = None
+    stepName: str | None = None
+    source: str | None = None
+    component: str | None = None
+    reason: str | None = None
+    meta: dict[str, Any] = Field(default_factory=dict)
+    screenshotPath: str | None = None
+    createdAt: int
+
+
+class ExecutionAutoLogResponse(BaseModel):
+    execution: AutoLogExecutionSummary | None = None
+    steps: list[AutoLogStep] = Field(default_factory=list)
+    logs: list[AutoLogEvent] = Field(default_factory=list)
