@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ..actions.wait import wait_seconds
-from ..constants import STEP_ATTACH_PRODUCTS
+from ..constants import STEP_ATTACH_PRODUCTS, TIMEOUT
 from ..payload import ShopeeUploadPayload
 
 
@@ -47,7 +47,7 @@ async def attach_one_product(
             },
         )
 
-    await wait_seconds(0.2)
+    await wait_seconds(TIMEOUT[STEP_ATTACH_PRODUCTS]["per_product_wait_sec"])
 
     if auto_log_context is not None:
         await auto_log_context.success(

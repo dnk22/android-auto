@@ -14,7 +14,7 @@ from ..constants import (
     DEVICE_GALLERY_VIDEO_DIR,
     MEDIA_SCAN_RETRY_COUNT,
     MEDIA_SCAN_RETRY_DELAY_SECONDS,
-    MEDIA_SCAN_WAIT_SECONDS,
+    TIMEOUT,
     STEP_PREPARE_VIDEO,
 )
 from ..payload import ShopeeUploadPayload
@@ -133,14 +133,15 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
             meta={"deviceVideoPath": device_video_path},
         )
 
-    await asyncio.sleep(MEDIA_SCAN_WAIT_SECONDS)
+    media_scan_wait_sec = TIMEOUT[STEP_PREPARE_VIDEO]["media_scan_wait_sec"]
+    await asyncio.sleep(media_scan_wait_sec)
 
     if auto_log_context is not None:
         await auto_log_context.info(
             event="prepare_video_media_scan_wait_finished",
             message="Đã chờ MediaStore cập nhật",
             step_key=STEP_PREPARE_VIDEO,
-            meta={"waitSec": MEDIA_SCAN_WAIT_SECONDS},
+            meta={"waitSec": media_scan_wait_sec},
         )
 
     if auto_log_context is not None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ..actions.input_text import input_text_with_fallback
 from ..actions.wait import wait_seconds
-from ..constants import STEP_INPUT_HASHTAG
+from ..constants import STEP_INPUT_HASHTAG, TIMEOUT
 from ..payload import ShopeeUploadPayload
 
 
@@ -15,7 +15,7 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
             meta={"hashtag": payload.hashtag},
         )
 
-    await wait_seconds(0.3)
+    await wait_seconds(TIMEOUT[STEP_INPUT_HASHTAG]["wait_sec"])
 
     # Future:
     # await input_text_with_fallback(...)

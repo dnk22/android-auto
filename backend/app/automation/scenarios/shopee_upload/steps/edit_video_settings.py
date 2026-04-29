@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ..actions.wait import wait_seconds
-from ..constants import STEP_EDIT_VIDEO_SETTINGS
+from ..constants import STEP_EDIT_VIDEO_SETTINGS, TIMEOUT
 from ..payload import ShopeeUploadPayload
 
 
@@ -14,4 +14,4 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
             step_key=STEP_EDIT_VIDEO_SETTINGS,
         )
 
-    await wait_seconds(0.3)
+    await wait_seconds(TIMEOUT[STEP_EDIT_VIDEO_SETTINGS]["wait_sec"])

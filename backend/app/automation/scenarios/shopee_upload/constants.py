@@ -24,6 +24,41 @@ MEDIA_SCAN_RETRY_DELAY_SECONDS = 1.0
 DEVICE_FILE_VERIFY_RETRY_COUNT = 3
 DEVICE_FILE_VERIFY_RETRY_DELAY_SECONDS = 0.5
 
+TIMEOUT: dict[str, dict[str, float]] = {
+    STEP_PREPARE_VIDEO: {
+        "media_scan_wait_sec": MEDIA_SCAN_WAIT_SECONDS,
+    },
+    STEP_OPEN_UPLOAD_FLOW: {
+        "app_start_wait_sec": 3.0,
+        "after_video_tab_wait_sec": 3.0,
+        "after_profile_tab_wait_sec": 2.0,
+    },
+    STEP_SELECT_VIDEO: {
+        "before_upload_button_wait_sec": 3.0,
+        "after_upload_button_wait_sec": 3.0,
+        "after_gallery_select_wait_sec": 3.0,
+        "after_first_video_wait_sec": 2.0,
+    },
+    STEP_INPUT_HASHTAG: {
+        "wait_sec": 0.3,
+    },
+    STEP_EDIT_VIDEO_SETTINGS: {
+        "wait_sec": 0.3,
+    },
+    STEP_ATTACH_PRODUCTS: {
+        "per_product_wait_sec": 0.2,
+    },
+    STEP_SUBMIT_VIDEO: {
+        "wait_sec": 0.3,
+    },
+    STEP_WAIT_PUBLISH_RESULT: {
+        "default_wait_sec": 3.0,
+    },
+    STEP_CLEANUP_DEVICE: {
+        "post_cleanup_wait_sec": 0.3,
+    },
+}
+
 SHOPEE_UPLOAD_STEPS: tuple[dict[str, Any], ...] = (
     {
         "index": 1,

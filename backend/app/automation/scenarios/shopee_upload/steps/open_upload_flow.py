@@ -5,7 +5,7 @@ import asyncio
 from app.automation.device.u2 import UiActionContext, click_first_match, exists
 
 from ..guard import close_shopee_blockers_if_any
-from ..constants import STEP_OPEN_UPLOAD_FLOW
+from ..constants import STEP_OPEN_UPLOAD_FLOW, TIMEOUT
 from ..exceptions import PauseRequiredException
 from ..payload import ShopeeUploadPayload
 from ..ui_selectors import ShopeeUiSelectors
@@ -71,7 +71,7 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
         return
 
     await asyncio.to_thread(payload.connection.app_start, "com.shopee.vn", stop=False)
-    await asyncio.sleep(3.0)
+    await asyncio.sleep(TIMEOUT[STEP_OPEN_UPLOAD_FLOW]["app_start_wait_sec"])
 
     closed_count = await asyncio.to_thread(
         close_shopee_blockers_if_any,
@@ -110,7 +110,7 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
         ctx=ctx,
     )
 
-    await asyncio.sleep(3.0)
+    await asyncio.sleep(TIMEOUT[STEP_OPEN_UPLOAD_FLOW]["after_video_tab_wait_sec"])
 
     await click_first_match(
         payload.connection,
@@ -120,7 +120,7 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
         ctx=ctx,
     )
 
-    await asyncio.sleep(2.0)
+    await asyncio.sleep(TIMEOUT[STEP_OPEN_UPLOAD_FLOW]["after_profile_tab_wait_sec"])
 
     if not await _is_on_profile_upload_dashboard(payload, auto_log_context):
         raise PauseRequiredException(

@@ -4,7 +4,7 @@ import asyncio
 
 from app.automation.device.u2 import UiActionContext, click_first_match
 
-from ..constants import STEP_SELECT_VIDEO
+from ..constants import STEP_SELECT_VIDEO, TIMEOUT
 from ..payload import ShopeeUploadPayload
 from ..ui_selectors import ShopeeUiSelectors
 
@@ -26,7 +26,7 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
             step_key=STEP_SELECT_VIDEO,
         )
 
-    await asyncio.sleep(3.0)
+    await asyncio.sleep(TIMEOUT[STEP_SELECT_VIDEO]["before_upload_button_wait_sec"])
     await click_first_match(
         payload.connection,
         ShopeeUiSelectors.UPLOAD_VIDEO_BUTTON,
@@ -35,7 +35,7 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
         ctx=ctx,
     )
 
-    await asyncio.sleep(3.0)
+    await asyncio.sleep(TIMEOUT[STEP_SELECT_VIDEO]["after_upload_button_wait_sec"])
     await click_first_match(
         payload.connection,
         ShopeeUiSelectors.BOX_SELECT_FROM_GALLERY,
@@ -44,7 +44,7 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
         ctx=ctx,
     )
 
-    await asyncio.sleep(3.0)
+    await asyncio.sleep(TIMEOUT[STEP_SELECT_VIDEO]["after_gallery_select_wait_sec"])
     await click_first_match(
         payload.connection,
         ShopeeUiSelectors.FIRST_VIDEO_IN_PICKER,
@@ -53,7 +53,7 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
         ctx=ctx,
     )
 
-    await asyncio.sleep(2.0)
+    await asyncio.sleep(TIMEOUT[STEP_SELECT_VIDEO]["after_first_video_wait_sec"])
     await click_first_match(
         payload.connection,
         ShopeeUiSelectors.NEXT_BUTTON,

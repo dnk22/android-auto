@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from ..actions.wait import wait_seconds
-from ..constants import STEP_WAIT_PUBLISH_RESULT
+from ..constants import STEP_WAIT_PUBLISH_RESULT, TIMEOUT
 from ..payload import ShopeeUploadPayload
 
 
 async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
-    wait_sec = float(payload.extra.get("publish_wait_sec", 3.0))
+    wait_sec = float(payload.extra.get("publish_wait_sec", TIMEOUT[STEP_WAIT_PUBLISH_RESULT]["default_wait_sec"]))
 
     if auto_log_context is not None:
         await auto_log_context.info(

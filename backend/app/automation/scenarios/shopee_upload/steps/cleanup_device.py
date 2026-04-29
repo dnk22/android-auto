@@ -4,7 +4,7 @@ import asyncio
 
 from ..actions.device_file import delete_device_file
 from ..actions.wait import wait_seconds
-from ..constants import STEP_CLEANUP_DEVICE
+from ..constants import STEP_CLEANUP_DEVICE, TIMEOUT
 from ..payload import ShopeeUploadPayload
 
 
@@ -46,5 +46,5 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
         except Exception:
             pass
 
-    await wait_seconds(0.3)
+    await wait_seconds(TIMEOUT[STEP_CLEANUP_DEVICE]["post_cleanup_wait_sec"])
 
