@@ -57,6 +57,7 @@ TIMEOUT: dict[str, dict[str, float]] = {
     },
     STEP_CLEANUP_DEVICE: {
         "post_cleanup_wait_sec": 0.3,
+        "after_delete_wait_sec": 5.0,
     },
 }
 
