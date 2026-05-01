@@ -13,9 +13,9 @@ class ShopeeUiSelectors:
     ]
     
     PROFILE_UPLOAD_DASHBOARD_MARKERS = [
+        UiSelector(text_contains="Đăng video"),
         UiSelector(text_contains="Kênh Người sáng tạo"),
         UiSelector(text_contains="Người đang theo dõi"),
-        UiSelector(text_contains="Đăng video"),
     ]
 
     UPLOAD_VIDEO_BUTTON = [
@@ -34,9 +34,9 @@ class ShopeeUiSelectors:
     ]
     
     NEXT_BUTTON = [
+        UiSelector(text_contains="Tiếp theo"),
         UiSelector(resource_id="com.shopee.vn:id/tv_pick_next"),
         UiSelector(resource_id="com.shopee.vn:id/tv_compress"),
-        UiSelector(text_contains="Tiếp theo"),
     ]
     
     # edit video settings selectors
@@ -78,4 +78,8 @@ class ShopeeUiSelectors:
     SUBMIT_BUTTON = [
         UiSelector(resource_id="com.shopee.vn.dfpluginshopee16:id/btn_post"),
         UiSelector(text_contains="Đăng"),
+    ]
+    
+    UPLOAD_LOADING_SELECTORS = [
+        UiSelector(text_contains="Đang tải"),
     ]

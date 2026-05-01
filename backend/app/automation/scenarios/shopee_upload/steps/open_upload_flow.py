@@ -73,18 +73,18 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
     await asyncio.to_thread(payload.connection.app_start, "com.shopee.vn", stop=False)
     await asyncio.sleep(TIMEOUT[STEP_OPEN_UPLOAD_FLOW]["app_start_wait_sec"])
 
-    closed_count = await asyncio.to_thread(
-        close_shopee_blockers_if_any,
-        payload.connection,
-    )
+    # closed_count = await asyncio.to_thread(
+    #     close_shopee_blockers_if_any,
+    #     payload.connection,
+    # )
 
-    if auto_log_context is not None:
-        await auto_log_context.info(
-            event="open_upload_flow_guard_checked",
-            message="Đã check/close blocker trước khi thao tác tab",
-            step_key=STEP_OPEN_UPLOAD_FLOW,
-            meta={"closedCount": closed_count},
-        )
+    # if auto_log_context is not None:
+    #     await auto_log_context.info(
+    #         event="open_upload_flow_guard_checked",
+    #         message="Đã check/close blocker trước khi thao tác tab",
+    #         step_key=STEP_OPEN_UPLOAD_FLOW,
+    #         meta={"closedCount": closed_count},
+    #     )
 
     # Check lại sau khi mở app và đóng blocker.
     if await _is_on_profile_upload_dashboard(payload, auto_log_context):
@@ -111,18 +111,18 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
 
     await asyncio.sleep(TIMEOUT[STEP_OPEN_UPLOAD_FLOW]["after_video_tab_wait_sec"])
     
-    closed_count = await asyncio.to_thread(
-        close_shopee_blockers_if_any,
-        payload.connection,
-    )
+    # closed_count = await asyncio.to_thread(
+    #     close_shopee_blockers_if_any,
+    #     payload.connection,
+    # )
 
-    if auto_log_context is not None:
-        await auto_log_context.info(
-            event="open_upload_flow_guard_checked",
-            message="Đã check/close blocker trước khi thao tác tab",
-            step_key=STEP_OPEN_UPLOAD_FLOW,
-            meta={"closedCount": closed_count},
-        )
+    # if auto_log_context is not None:
+    #     await auto_log_context.info(
+    #         event="open_upload_flow_guard_checked",
+    #         message="Đã check/close blocker trước khi thao tác tab",
+    #         step_key=STEP_OPEN_UPLOAD_FLOW,
+    #         meta={"closedCount": closed_count},
+    #     )
 
     await click_first_match(
         payload.connection,
