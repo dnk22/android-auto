@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from app.automation.device.u2 import UiActionContext
-from app.automation.device.u2.input import input_text_with_fallback
+from app.automation.device.u2.input import input_text_with_fallback, click_first_match
 
 from ..actions.wait import wait_seconds
 from ..constants import STEP_INPUT_HASHTAG, TIMEOUT
@@ -86,7 +86,12 @@ async def run(payload: ShopeeUploadPayload, auto_log_context=None) -> None:
         ) from exc
         
     await asyncio.sleep(TIMEOUT[STEP_INPUT_HASHTAG]["wait_sec"])
-    await asyncio.to_thread(payload.connection.press, "back")
+    await click_first_match(
+        payload.connection,
+        ShopeeUiSelectors.OK_BUTTON,
+        label="ok after_input_hashtag",
+        ctx=ctx,
+    )
 
     if auto_log_context is not None:
         await auto_log_context.success(

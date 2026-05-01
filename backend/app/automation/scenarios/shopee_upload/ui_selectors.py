@@ -83,3 +83,7 @@ class ShopeeUiSelectors:
     UPLOAD_LOADING_SELECTORS = [
         UiSelector(text_contains="Đang tải"),
     ]
+    
+    OK_BUTTON = [
+        UiSelector(text_contains="Đồng ý"),
+    ]
