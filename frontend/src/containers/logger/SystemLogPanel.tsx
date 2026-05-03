@@ -218,8 +218,8 @@ export function SystemLogPanel({ logs, onClear }: Props): JSX.Element {
   };
 
   return (
-    <>
-      <div className="mt-4 grid grid-cols-1 gap-2 xl:grid-cols-6">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-6">
         <input
           value={search}
           onChange={(event) => {
@@ -314,7 +314,7 @@ export function SystemLogPanel({ logs, onClear }: Props): JSX.Element {
 
       <div
         ref={panelRef}
-        className="mt-3 flex-1 space-y-2 overflow-y-auto rounded-xl bg-[var(--panel-soft)] px-3 py-3 text-xs text-[var(--ink)]"
+        className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-xl bg-[var(--panel-soft)] px-3 py-3 text-xs text-[var(--ink)]"
       >
         {filteredLogs.length === 0 ? (
           <p className="text-[var(--muted)]">Waiting for logs...</p>
@@ -386,6 +386,6 @@ export function SystemLogPanel({ logs, onClear }: Props): JSX.Element {
           })
         )}
       </div>
-    </>
+    </div>
   );
 }

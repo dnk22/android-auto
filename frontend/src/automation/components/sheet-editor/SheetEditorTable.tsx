@@ -54,11 +54,11 @@ export function SheetEditorTable({
 
   return (
     <>
-      <div className="rounded-xl h-full border border-[var(--card-border)] bg-[var(--panel-soft)] p-2">
+      <div className="rounded-xl h-full min-h-0 border border-[var(--card-border)] bg-[var(--panel-soft)] p-2 flex flex-col">
         {loading ? (
           <div className="p-4 text-sm text-[var(--muted)]">Loading ...</div>
         ) : (
-          <div className="h-full overflow-auto">
+          <div className="h-full min-h-0 overflow-auto">
             <table
               className="w-max min-w-full table-fixed border-collapse"
               style={{ minWidth: tableMinWidth }}

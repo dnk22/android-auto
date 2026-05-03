@@ -2,7 +2,7 @@ import LogPanel from "../../../components/LogPanel";
 
 export default function DashboardLogSection(): JSX.Element {
   return (
-    <div className="min-h-0 flex-1">
+    <div className="flex-1 h-[50%]">
       <LogPanel />
     </div>
   );

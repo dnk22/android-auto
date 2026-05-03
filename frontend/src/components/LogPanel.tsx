@@ -12,7 +12,7 @@ export default function LogPanel(): JSX.Element {
   const [activeTab, setActiveTab] = useState<LogTab>("system");
 
   return (
-    <section className="card fade-in flex h-full min-h-0 flex-col p-6 max-h-[50vh]">
+    <section className="card fade-in flex h-full min-h-0 flex-col p-6">
       <div className="flex items-center justify-between">
         <h3 className="font-display text-xl">Logs</h3>
         <div className="flex items-center gap-2">
@@ -45,11 +45,13 @@ export default function LogPanel(): JSX.Element {
         </div>
       </div>
 
-      {activeTab === "system" ? (
-        <SystemLogPanel logs={logs} onClear={clearLogs} />
-      ) : (
-        <AutoLogPanel />
-      )}
+      <div className="mt-4 flex min-h-0 flex-1 flex-col">
+        {activeTab === "system" ? (
+          <SystemLogPanel logs={logs} onClear={clearLogs} />
+        ) : (
+          <AutoLogPanel />
+        )}
+      </div>
     </section>
   );
 }
