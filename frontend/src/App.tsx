@@ -3,7 +3,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import Dashboard from "./pages/Dashboard";
-import { parseLogMessage } from "./logs/normalizeSystemLog";
+import { parseLogMessage } from "./containers/logger/normalizeSystemLog";
 import { useDevices } from "./hooks/useDevices";
 import { useStore } from "./store/useStore";
 

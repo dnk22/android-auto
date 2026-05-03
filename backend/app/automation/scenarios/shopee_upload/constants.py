@@ -29,13 +29,13 @@ TIMEOUT: dict[str, dict[str, float]] = {
         "media_scan_wait_sec": MEDIA_SCAN_WAIT_SECONDS,
     },
     STEP_OPEN_UPLOAD_FLOW: {
-        "app_start_wait_sec": 2.0,
+        "app_start_wait_sec": 1.0,
         "after_video_tab_wait_sec": 1.0,
-        "after_profile_tab_wait_sec": 2.0,
+        "after_profile_tab_wait_sec": 1.0,
     },
     STEP_SELECT_VIDEO: {
-        "before_upload_button_wait_sec": 3.0,
-        "after_upload_button_wait_sec": 3.0,
+        "before_upload_button_wait_sec": 1.0,
+        "after_upload_button_wait_sec": 1.0,
         "after_gallery_select_wait_sec": 1.0,
         "after_first_video_wait_sec": 1.0,
     },

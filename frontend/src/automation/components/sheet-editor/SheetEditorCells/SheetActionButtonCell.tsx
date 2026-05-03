@@ -46,7 +46,7 @@ export function SheetActionButtonCell({
   const showReady = status === "idle" && isWatching && !isSessionAutoReady;
   const showDelete =
     status === "missing_file" || status === "done" || status === "stopped";
-  const showCancel = status === "ready";
+  const showCancel = status === "ready" || status === "queued";
   const showPause = status === "running";
   const showStop = status === "running" || status === "paused";
   const showResume = status === "paused";

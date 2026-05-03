@@ -1,5 +1,5 @@
 import type { LegacyDevice } from "../device";
-import type { SystemLogEvent } from "../../logs/types";
+import type { SystemLogEvent } from "../../containers/logger/types";
 
 export type ThemeMode = "light" | "dark";
 

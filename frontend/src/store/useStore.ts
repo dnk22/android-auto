@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { AppStore, ThemeMode } from "../types/store/store.types";
-import { normalizeSystemLog, parseLogMessage } from "../logs/normalizeSystemLog";
+import { normalizeSystemLog, parseLogMessage } from "../containers/logger/normalizeSystemLog";
 
 export const selectHasU2Device = (state: AppStore): boolean =>
   state.devices.some((device) => Boolean(device.u2));

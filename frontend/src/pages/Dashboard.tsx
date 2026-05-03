@@ -8,8 +8,8 @@ export default function Dashboard(): JSX.Element {
   useStorageEvents(wsUrl);
 
   return (
-    <div className="app-shell min-h-screen w-full p-2">
-      <div className="grid min-h-[calc(100vh-2rem)] w-full grid-cols-1 gap-4 lg:grid-cols-[15%_55%_28%]">
+    <div className="app-shell min-h-screen w-full overflow-hidden">
+      <div className="grid min-h-[calc(100vh-2rem)] w-full grid-cols-1 gap-4 lg:grid-cols-[15%_55%_28%] overflow-hidden">
         <div className="flex h-full w-full">
           <SidebarContainer />
         </div>
