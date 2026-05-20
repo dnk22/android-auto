@@ -5,6 +5,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 import Dashboard from "./pages/Dashboard";
 import Devices from "./pages/Devices";
+import FilePage from "./pages/File";
 import MainLayout from "./layouts/MainLayout";
 import { parseLogMessage } from "./containers/logger/normalizeSystemLog";
 import { useDevices } from "./hooks/useDevices";
@@ -56,7 +57,7 @@ export default function App(): JSX.Element {
         <Route element={<MainLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/devices" element={<Devices />} />
-          <Route path="/file" element={<div className="p-4">File page</div>} />
+          <Route path="/file" element={<FilePage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>

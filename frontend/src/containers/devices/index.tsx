@@ -15,6 +15,7 @@ export default function DevicesContainer(): JSX.Element {
     canConnect,
     getAdbStatusTone,
     getU2StatusTone,
+    handleRefreshDevices, 
   } = useSidebarController();
 
   return (
@@ -23,12 +24,15 @@ export default function DevicesContainer(): JSX.Element {
         <h1 className="text-2xl font-semibold text-[var(--ink)]">Thiết bị</h1>
 
         <DevicesToolbar
-          canConnectAll={devices.length > 0 && devices.some((device) => !device.connected)}
+          canConnectAll={
+            devices.length > 0 && devices.some((device) => !device.connected)
+          }
           canDisconnectAll={devices.some((device) => device.connected)}
           isConnectingAll={isConnectingAll}
           isDisconnectingAll={isDisconnectingAll}
           onConnectAll={handleConnectAll}
           onDisconnectAll={handleDisconnectAll}
+          onRefresh={handleRefreshDevices}
         />
 
         <div className="min-h-0 flex-1 overflow-y-auto">

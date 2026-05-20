@@ -1,11 +1,7 @@
-import DashboardMainContainer from "../containers/DashboardMain/index";
-import DeviceWorkspaceContainer from "../containers/DeviceWorkspace/index";
-import { useStorage, useStorageEvents } from "../automation/hooks/useStorage";
+import DashboardMainContainer from "../containers/DashboardMain";
+import DeviceWorkspaceContainer from "../containers/DeviceWorkspace";
 
 export default function Dashboard(): JSX.Element {
-  const { wsUrl } = useStorage();
-  useStorageEvents(wsUrl);
-
   return (
     <div className="app-shell h-screen w-full overflow-hidden p-2">
       <div className="grid h-[calc(100vh-1rem)] w-full grid-cols-1 gap-4 lg:grid-cols-[68%_30%]">

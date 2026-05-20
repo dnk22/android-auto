@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import mimetypes
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 
 from app.automation.models.sheet_model import SheetRow
 from app.automation.schemas.automation_schema import (
@@ -215,6 +217,19 @@ def build_router(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except RuntimeError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    @router.get("/automation/storage/video/{videoName}")
+    async def stream_storage_video(videoName: str):
+        try:
+            file_path = await storage_service.resolve_video_path(videoName)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+        if file_path is None:
+            raise HTTPException(status_code=404, detail="file not found")
+
+        media_type, _ = mimetypes.guess_type(file_path.name)
+        return FileResponse(path=file_path, media_type=media_type or "application/octet-stream")
 
     @router.post("/automation/storage/rename", response_model=RenameFileResponse)
     async def rename_storage_file(payload: RenameFileRequest) -> RenameFileResponse:

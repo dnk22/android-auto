@@ -15,6 +15,10 @@ import type { SheetStatus } from "../types/sheetStatus.types";
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || "http://localhost:8000") as string;
 
+export function buildStorageVideoUrl(videoName: string): string {
+  return `${BACKEND_URL}/automation/storage/video/${encodeURIComponent(videoName)}`;
+}
+
 export function getAutomationEventsWsUrl(): string {
   const base =
     typeof window !== "undefined" ? window.location.origin : "http://localhost:8000";
