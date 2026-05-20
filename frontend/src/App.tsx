@@ -1,8 +1,11 @@
 import { useEffect } from "react";
 import { ToastContainer } from "react-toastify";
+import { Navigate, Route, Routes } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
 
 import Dashboard from "./pages/Dashboard";
+import Devices from "./pages/Devices";
+import MainLayout from "./layouts/MainLayout";
 import { parseLogMessage } from "./containers/logger/normalizeSystemLog";
 import { useDevices } from "./hooks/useDevices";
 import { useStore } from "./store/useStore";
@@ -49,7 +52,14 @@ export default function App(): JSX.Element {
 
   return (
     <>
-      <Dashboard />
+      <Routes>
+        <Route element={<MainLayout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/devices" element={<Devices />} />
+          <Route path="/file" element={<div className="p-4">File page</div>} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
+      </Routes>
       <ToastContainer
         position="top-right"
         autoClose={2500}

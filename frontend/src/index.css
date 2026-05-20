@@ -5,15 +5,15 @@
 @tailwind utilities;
 
 :root {
-  --bg-start: #f6f2e8;
-  --bg-end: #e8f0ff;
+  --bg-start: #f8fafc;
+  --bg-end: #f8fafc;
   --panel: #ffffff;
-  --ink: #1c2438;
-  --muted: #5e6a85;
-  --accent: #ff7a59;
-  --accent-2: #2f80ed;
-  --card-border: rgba(28, 36, 56, 0.08);
-  --card-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+  --ink: #0f172a;
+  --muted: #64748b;
+  --accent: #3b82f6;
+  --accent-2: #3b82f6;
+  --card-border: rgba(15, 23, 42, 0.1);
+  --card-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
   --panel-soft: #f8fafc;
   --chip-warm-bg: #ffe9d6;
   --chip-success-bg: #e9fce9;
@@ -27,14 +27,14 @@
 body[data-theme="dark"] {
   --bg-start: #0f172a;
   --bg-end: #0f172a;
-  --panel: #111c34;
-  --ink: #e5ecff;
-  --muted: #95a6cc;
-  --accent: #ff8c5a;
-  --accent-2: #5fa8ff;
-  --card-border: rgba(148, 163, 184, 0.2);
-  --card-shadow: 0 20px 50px rgba(2, 6, 23, 0.45);
-  --panel-soft: #16233f;
+  --panel: #1e293b;
+  --ink: #f1f5f9;
+  --muted: #94a3b8;
+  --accent: #60a5fa;
+  --accent-2: #60a5fa;
+  --card-border: rgba(148, 163, 184, 0.22);
+  --card-shadow: 0 20px 50px rgba(2, 6, 23, 0.42);
+  --panel-soft: #273449;
   --chip-warm-bg: #33261b;
   --chip-success-bg: #1a3a2d;
   --chip-success-fg: #86efac;
@@ -47,14 +47,12 @@ body[data-theme="dark"] {
 body {
   font-family: "Space Grotesk", system-ui, sans-serif;
   color: var(--ink);
-  background: radial-gradient(circle at top left, #fff2e0, transparent 45%),
-    radial-gradient(circle at 80% 20%, #d8f3ff, transparent 45%),
-    linear-gradient(135deg, var(--bg-start), var(--bg-end));
+  background: var(--bg-start);
   min-height: 100vh;
 }
 
 body[data-theme="dark"] {
-  background: #0f172a;
+  background: var(--bg-start);
 }
 
 .app-shell {

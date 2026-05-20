@@ -17,8 +17,6 @@ export function useSidebarController(): SidebarControllerResult {
   );
   const selectedDevice = useStore((state) => state.selectedDevice);
   const addLog = useStore((state) => state.addLog);
-  const theme = useStore((state) => state.theme);
-  const toggleTheme = useStore((state) => state.toggleTheme);
   const control = useControl();
 
   const [connectingDeviceId, setConnectingDeviceId] = useState("");
@@ -191,8 +189,6 @@ export function useSidebarController(): SidebarControllerResult {
 
   return {
     devices,
-    theme,
-    toggleTheme,
     connectingDeviceId,
     isConnectingAll,
     isDisconnectingAll,

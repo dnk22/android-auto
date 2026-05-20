@@ -15,8 +15,7 @@ export default function DashboardSummarySection(): JSX.Element {
     saveRowAt,
     setStatusByVideoId,
     deleteRowByVideoName,
-  } =
-    useSheetEditor();
+  } = useSheetEditor();
 
   return (
     <section className="card fade-in flex h-full h-[50%] flex-col gap-4 overflow-hidden p-5">
@@ -39,11 +38,6 @@ export default function DashboardSummarySection(): JSX.Element {
 
         {sheetQuery.error ? (
           <p className="text-xs text-red-600">Failed to load sheet data.</p>
-        ) : null}
-        {deviceOptions.length === 0 ? (
-          <p className="text-xs text-amber-600">
-            No connected device found for device_id selector.
-          </p>
         ) : null}
       </div>
     </section>

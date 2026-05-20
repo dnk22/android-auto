@@ -1,12 +1,9 @@
 import type { LegacyDevice } from "../device";
-import type { ThemeMode } from "../store/store.types";
 
 export type DeviceStatusTone = string;
 
 export interface SidebarControllerResult {
   devices: LegacyDevice[];
-  theme: ThemeMode;
-  toggleTheme: () => void;
   connectingDeviceId: string;
   isConnectingAll: boolean;
   isDisconnectingAll: boolean;
