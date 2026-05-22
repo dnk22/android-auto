@@ -46,12 +46,14 @@ class DeviceManager:
     def list_devices(self) -> list[DeviceState]:
         return list(self._devices.values())
 
-    async def update_adb_state(self, device_id: str, connected: bool) -> None:
+    async def update_adb_state(self, device_id: str, connected: bool, device_name: str | None = None) -> None:
         async with self._locks.device(device_id):
             device = self._devices.get(device_id)
             if device is None:
-                device = DeviceState(device_id=device_id)
+                device = DeviceState(device_id=device_id, device_name=device_name or device_id)
                 self._devices[device_id] = device
+            elif device_name:
+                device.device_name = device_name
 
             previous = device.adb
             device.last_seen = now_ts()
@@ -85,7 +87,7 @@ class DeviceManager:
         async with self._locks.device(device_id):
             device = self._devices.get(device_id)
             if device is None:
-                device = DeviceState(device_id=device_id)
+                device = DeviceState(device_id=device_id, device_name=device_id)
                 self._devices[device_id] = device
 
             if not device.adb:
@@ -120,7 +122,7 @@ class DeviceManager:
         async with self._locks.device(device_id):
             device = self._devices.get(device_id)
             if device is None:
-                device = DeviceState(device_id=device_id)
+                device = DeviceState(device_id=device_id, device_name=device_id)
                 self._devices[device_id] = device
 
             device.u2 = False
@@ -146,7 +148,7 @@ class DeviceManager:
         async with self._locks.device(device_id):
             device = self._devices.get(device_id)
             if device is None:
-                device = DeviceState(device_id=device_id)
+                device = DeviceState(device_id=device_id, device_name=device_id)
                 self._devices[device_id] = device
 
             if not device.adb:
@@ -216,7 +218,7 @@ class DeviceManager:
         async with self._locks.device(device_id):
             device = self._devices.get(device_id)
             if device is None:
-                device = DeviceState(device_id=device_id)
+                device = DeviceState(device_id=device_id, device_name=device_id)
                 self._devices[device_id] = device
             await self._stop_stream_immediate(device, reason="manual_stop")
             await self._push_update(device)

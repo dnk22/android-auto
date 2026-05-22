@@ -16,6 +16,7 @@ class StreamStatus(str, Enum):
 
 class DeviceState(BaseModel):
     device_id: str
+    device_name: str | None = None
 
     adb: bool = False
     u2: bool = False

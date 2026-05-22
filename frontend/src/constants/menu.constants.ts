@@ -8,19 +8,19 @@ export type AppMenuItem = {
 export const APP_MENUS: AppMenuItem[] = [
   {
     key: "dashboard",
-    label: "Dashboard",
+    label: "Trang chủ",
     path: "/dashboard",
     icon: "📊",
   },
   {
     key: "devices",
-    label: "Devices",
+    label: "Thiết bị",
     path: "/devices",
     icon: "📱",
   },
   {
     key: "file",
-    label: "File",
+    label: "Tệp tin",
     path: "/file",
     icon: "📁",
   },

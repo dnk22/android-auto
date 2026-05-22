@@ -44,10 +44,11 @@ class AdbWatcher:
                 )
             await asyncio.sleep(self._poll_interval_sec)
 
-    async def _fetch_adb_devices(self) -> set[str]:
+    async def _fetch_adb_devices(self) -> dict[str, str]:
         process = await asyncio.create_subprocess_exec(
             "adb",
             "devices",
+            "-l",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -56,24 +57,38 @@ class AdbWatcher:
             raise RuntimeError(stderr.decode("utf-8", errors="ignore").strip() or "adb command failed")
 
         lines = stdout.decode("utf-8", errors="ignore").splitlines()
-        detected: set[str] = set()
+        detected: dict[str, str] = {}
         for line in lines[1:]:
             line = line.strip()
-            if not line or "\t" not in line:
+            if not line:
                 continue
-            serial, status = line.split("\t", 1)
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            serial = parts[0]
+            status = parts[1]
             if status == "device":
-                detected.add(serial)
+                model_name = serial
+                for token in parts[2:]:
+                    if token.startswith("model:"):
+                        model_name = token.split(":", 1)[1].replace("_", " ").strip() or serial
+                        break
+                detected[serial] = model_name
         return detected
 
-    async def _reconcile(self, detected: set[str]) -> None:
+    async def _reconcile(self, detected: dict[str, str]) -> None:
         current = {d.device_id for d in self._manager.list_devices() if d.adb}
 
-        added = detected - current
-        removed = current - detected
+        detected_ids = set(detected.keys())
+
+        added = detected_ids - current
+        removed = current - detected_ids
 
         for device_id in added:
-            await self._manager.update_adb_state(device_id, True)
+            await self._manager.update_adb_state(device_id, True, detected.get(device_id))
+
+        for device_id in (detected_ids & current):
+            await self._manager.update_adb_state(device_id, True, detected.get(device_id))
 
         for device_id in removed:
             await self._manager.update_adb_state(device_id, False)

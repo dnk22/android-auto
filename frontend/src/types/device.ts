@@ -2,6 +2,7 @@ export type StreamStatus = "STOPPED" | "STARTING" | "RUNNING" | "ERROR";
 
 export interface DeviceState {
   deviceId: string;
+  deviceName?: string;
   adb: boolean;
   u2: boolean;
   stream: StreamStatus;
@@ -21,6 +22,8 @@ export interface LegacyDevice extends DeviceState {
 interface BackendDeviceStatePayload {
   device_id?: string;
   deviceId?: string;
+  device_name?: string;
+  deviceName?: string;
   adb?: boolean;
   u2?: boolean;
   stream?: StreamStatus;
@@ -34,6 +37,10 @@ interface BackendDeviceStatePayload {
 
 export const normalizeDevice = (input: BackendDeviceStatePayload): LegacyDevice => {
   const deviceId = String(input.device_id ?? input.deviceId ?? "");
+  const deviceNameRaw = input.device_name ?? input.deviceName;
+  const deviceName = typeof deviceNameRaw === "string" && deviceNameRaw.trim()
+    ? deviceNameRaw.trim()
+    : deviceId;
   const adb = Boolean(input.adb);
   const u2 = Boolean(input.u2);
   const stream = (input.stream ?? "STOPPED") as StreamStatus;
@@ -54,6 +61,7 @@ export const normalizeDevice = (input: BackendDeviceStatePayload): LegacyDevice 
   return {
     id: deviceId,
     deviceId,
+    deviceName,
     adb,
     u2,
     stream,
@@ -65,4 +73,11 @@ export const normalizeDevice = (input: BackendDeviceStatePayload): LegacyDevice 
     adb_status: adb ? "device" : "offline",
     u2_status: u2Status,
   };
+};
+
+export const formatDeviceLabel = (device: Pick<LegacyDevice, "deviceId" | "deviceName">): string => {
+  if (device.deviceName && device.deviceName !== device.deviceId) {
+    return `${device.deviceName} (${device.deviceId})`;
+  }
+  return device.deviceId;
 };

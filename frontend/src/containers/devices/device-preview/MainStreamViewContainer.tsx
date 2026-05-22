@@ -4,6 +4,7 @@ import { Back, Camera, Home, HamburgerMenu } from "iconsax-reactjs";
 
 import DebouncedButton from "../../../components/common/DebouncedButton";
 import H264Decoder from "../../../components/H264Decoder";
+import { formatDeviceLabel } from "../../../types/device";
 import { useMainStreamController } from "./hooks/useMainStreamController";
 
 export default function MainStreamViewContainer(): JSX.Element {
@@ -53,7 +54,7 @@ export default function MainStreamViewContainer(): JSX.Element {
         </h4>
         <p className="text-sm text-[var(--muted)]">
           {activeStreamDevice
-            ? `Streaming : ${activeStreamDevice}`
+            ? `Streaming : ${selectedDeviceInfo ? formatDeviceLabel(selectedDeviceInfo) : activeStreamDevice}`
             : "Không có stream nào được chọn"}
         </p>
       </div>

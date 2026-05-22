@@ -1,5 +1,5 @@
 import DashboardMainContainer from "../containers/DashboardMain";
-import DeviceWorkspaceContainer from "../containers/DeviceWorkspace";
+// import DeviceWorkspaceContainer from "../containers/DeviceWorkspace";
 
 export default function Dashboard(): JSX.Element {
   return (
@@ -8,9 +8,9 @@ export default function Dashboard(): JSX.Element {
         <div className="flex h-full w-full min-h-0 overflow-hidden">
           <DashboardMainContainer />
         </div>
-        <div className="flex h-full w-full min-h-0 overflow-hidden">
+        {/* <div className="flex h-full w-full min-h-0 overflow-hidden">
           <DeviceWorkspaceContainer />
-        </div>
+        </div> */}
       </div>
     </div>
   );
