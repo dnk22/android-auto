@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
-import { FolderOpen } from "iconsax-reactjs";
+import { DocumentDownload, FolderOpen } from "iconsax-reactjs";
 import { toast } from "react-toastify";
 
 import { DuplicateModal } from "../../automation/components/DuplicateModal";
 import { VideoPreviewModal } from "../../automation/components/VideoPreviewModal";
 import { buildStorageVideoUrl } from "../../automation/api/automation.api";
-import { useStorage, useStorageEvents } from "../../automation/hooks/useStorage";
+import {
+  useStorage,
+  useStorageEvents,
+} from "../../automation/hooks/useStorage";
 import { useAutomationStore } from "../../automation/store/automation.store";
 import DebouncedButton from "../../components/common/DebouncedButton";
 import FileItemCard from "./components/FileItemCard";
@@ -33,7 +36,9 @@ export default function FilesContainer(): JSX.Element {
   useStorageEvents(wsUrl);
 
   const duplicateModal = useAutomationStore((state) => state.duplicateModal);
-  const closeDuplicateModal = useAutomationStore((state) => state.closeDuplicateModal);
+  const closeDuplicateModal = useAutomationStore(
+    (state) => state.closeDuplicateModal,
+  );
 
   useEffect(() => {
     if (duplicateModal.isOpen) {
@@ -122,18 +127,33 @@ export default function FilesContainer(): JSX.Element {
       <div className="mx-auto flex h-full w-full min-h-0 flex-col gap-4">
         <div className="card fade-in flex items-center justify-between gap-3 p-5">
           <div>
-            <h1 className="text-2xl font-semibold text-[var(--ink)]">File Manager</h1>
-            <p className="mt-1 text-sm text-[var(--muted)]">Folder: {videoFolderPath || "(chưa cấu hình)"}</p>
+            <h1 className="text-2xl font-semibold text-[var(--ink)]">
+              File Manager
+            </h1>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Folder: {videoFolderPath || "(chưa cấu hình)"}
+            </p>
           </div>
-          <DebouncedButton
-            type="button"
-            onClick={onOpenFolder}
-            disabled={!canOpenFolder}
-            className="inline-flex h-11 items-center gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--panel-soft)] px-4 text-sm font-semibold text-[var(--ink)] shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <FolderOpen size="18" color="currentColor" variant="Linear" />
-            Mở folder
-          </DebouncedButton>
+          <div className="flex gap-3">
+            <DebouncedButton
+              type="button"
+              onClick={onOpenFolder}
+              disabled={!canOpenFolder}
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--panel-soft)] px-4 text-sm font-semibold text-[var(--ink)] shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <DocumentDownload size="18" color="currentColor" variant="Linear" />
+              Tải video
+            </DebouncedButton>
+            <DebouncedButton
+              type="button"
+              onClick={onOpenFolder}
+              disabled={!canOpenFolder}
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--panel-soft)] px-4 text-sm font-semibold text-[var(--ink)] shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <FolderOpen size="18" color="currentColor" variant="Linear" />
+              Mở folder
+            </DebouncedButton>
+          </div>
         </div>
 
         <section className="card fade-in min-h-0 flex-1 overflow-y-auto border border-[var(--card-border)] p-5 shadow-[0_14px_36px_rgba(15,23,42,0.10)]">
@@ -161,7 +181,11 @@ export default function FilesContainer(): JSX.Element {
             </div>
           )}
 
-          {loading ? <p className="mt-3 text-xs text-[var(--muted)]">Loading storage...</p> : null}
+          {loading ? (
+            <p className="mt-3 text-xs text-[var(--muted)]">
+              Loading storage...
+            </p>
+          ) : null}
         </section>
       </div>
 
@@ -185,7 +209,9 @@ export default function FilesContainer(): JSX.Element {
               closeDuplicateModal();
               setDuplicateDraftName("");
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : "Rename failed");
+              toast.error(
+                error instanceof Error ? error.message : "Rename failed",
+              );
             }
           })();
         }}
@@ -214,7 +240,9 @@ export default function FilesContainer(): JSX.Element {
       <VideoPreviewModal
         isOpen={previewVideoName !== null}
         videoName={previewVideoName ?? ""}
-        videoUrl={previewVideoName ? buildStorageVideoUrl(previewVideoName) : ""}
+        videoUrl={
+          previewVideoName ? buildStorageVideoUrl(previewVideoName) : ""
+        }
         onClose={closePreview}
       />
     </div>
