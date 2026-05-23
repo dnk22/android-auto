@@ -1,21 +1,30 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { fetchDevices } from "../../../api/device.api";
 import { useControl } from "../../../hooks/useControl";
 import { toastAction, getErrorMessage } from "../../../services/feedback";
 import { useStore } from "../../../store/useStore";
 import type { LegacyDevice } from "../../../types/device";
-import type { AppStore } from "../../../types/store/store.types";
 import type { SidebarControllerResult } from "../../../types/sidebar/sidebar.types";
+
+const adbStatusTone = new Map<string, string>([
+  ["device", "bg-emerald-500"],
+  ["offline", "bg-slate-400"],
+  ["unknown", "bg-slate-400"],
+]);
+
+const u2StatusTone = new Map<string, string>([
+  ["connected", "bg-emerald-500"],
+  ["connecting", "bg-amber-500"],
+  ["error", "bg-rose-500"],
+  ["disconnected", "bg-slate-400"],
+]);
 
 export function useSidebarController(): SidebarControllerResult {
   const devices = useStore((state) => state.devices);
   const setDevices = useStore((state) => state.setDevices);
   const setSelectedDevice = useStore((state) => state.setSelectedDevice);
-  const setSelectedStreamDevice = useStore(
-    (state) => state.setSelectedStreamDevice,
-  );
-  const selectedDevice = useStore((state) => state.selectedDevice);
+  const setSelectedStreamDevice = useStore((state) => state.setSelectedStreamDevice);
   const addLog = useStore((state) => state.addLog);
   const control = useControl();
 
@@ -26,166 +35,124 @@ export function useSidebarController(): SidebarControllerResult {
   const refreshDevices = async (): Promise<LegacyDevice[]> => {
     const nextDevices = await fetchDevices();
     setDevices(nextDevices);
-    addLog("Đã cập nhật danh sách thiết bị");
     return nextDevices;
   };
 
   const handleRefreshDevices = async () => {
     try {
       await toastAction(refreshDevices, {
-        pending: "Đang tải danh sách thiết bị...",
-        success: "Đã cập nhật danh sách thiết bị",
-        error: "Không thể tải danh sách thiết bị",
+        pending: "Dang tai danh sach thiet bi...",
+        success: "Da cap nhat danh sach thiet bi",
+        error: "Khong the tai danh sach thiet bi",
       });
     } catch (error) {
-      const message = `Không thể tải danh sách thiết bị: ${getErrorMessage(error, "Không thể tải danh sách thiết bị")}`;
-      addLog(message);
+      addLog(getErrorMessage(error, "Khong the tai danh sach thiet bi"));
     }
   };
 
   const handleConnect = async (targetDeviceId: string): Promise<void> => {
+    if (!targetDeviceId) {
+      return;
+    }
+
+    setConnectingDeviceId(targetDeviceId);
     try {
-      setConnectingDeviceId(targetDeviceId);
-      await toastAction(
-        async () => {
-          await control.connect(targetDeviceId);
-          setSelectedDevice(targetDeviceId);
-          addLog(`Kết nối thành công với ${targetDeviceId}`);
-        },
-        {
-          pending: `Đang kết nối ${targetDeviceId}...`,
-          success: `Đã kết nối ${targetDeviceId}`,
-          error: `Lỗi khi kết nối thiết bị ${targetDeviceId}`,
-        },
-      );
+      await toastAction(() => control.connect(targetDeviceId), {
+        pending: "Dang ket noi thiet bi...",
+        success: "Da ket noi thiet bi",
+        error: "Khong the ket noi thiet bi",
+      });
+      await refreshDevices();
+      setSelectedDevice(targetDeviceId);
+      setSelectedStreamDevice(targetDeviceId);
     } catch (error) {
-      const message = `Lỗi khi kết nối thiết bị: ${getErrorMessage(error, "Không thể kết nối thiết bị")}`;
-      addLog(message);
+      addLog(getErrorMessage(error, "Khong the ket noi thiet bi"));
     } finally {
       setConnectingDeviceId("");
     }
   };
 
   const handleDisconnect = async (targetDeviceId: string): Promise<void> => {
+    if (!targetDeviceId) {
+      return;
+    }
+
+    setConnectingDeviceId(targetDeviceId);
     try {
-      await toastAction(
-        async () => {
-          await control.disconnect(targetDeviceId);
-          if (selectedDevice === targetDeviceId) {
-            setSelectedDevice("");
-          }
-          addLog(`Đã dừng kết nối ${targetDeviceId}`);
-        },
-        {
-          pending: `Đang dừng kết nối ${targetDeviceId}...`,
-          success: `Đã dừng kết nối ${targetDeviceId}`,
-          error: `Lỗi khi dừng kết nối thiết bị ${targetDeviceId}`,
-        },
-      );
+      await toastAction(() => control.disconnect(targetDeviceId), {
+        pending: "Dang ngat ket noi...",
+        success: "Da ngat ket noi",
+        error: "Khong the ngat ket noi",
+      });
+      await refreshDevices();
+      if (targetDeviceId === useStore.getState().selectedDevice) {
+        setSelectedDevice("");
+        setSelectedStreamDevice("");
+      }
     } catch (error) {
-      const message = `Lỗi khi dừng kết nối thiết bị: ${getErrorMessage(error, "Không thể dừng kết nối thiết bị")}`;
-      addLog(message);
+      addLog(getErrorMessage(error, "Khong the ngat ket noi"));
+    } finally {
+      setConnectingDeviceId("");
     }
   };
 
-  const handleConnectAll = async () => {
+  const handleConnectAll = async (): Promise<void> => {
+    if (isConnectingAll || isDisconnectingAll) {
+      return;
+    }
+
+    setIsConnectingAll(true);
     try {
-      setIsConnectingAll(true);
-      await toastAction(
-        async () => {
-          await control.connectAll();
-          const refreshedDevices = await refreshDevices();
-          const previewDevices = refreshedDevices.filter(
-            (device) => String(device.u2_status).toLowerCase() === "connected",
-          );
-          const firstPreviewDevice = previewDevices[0];
-
-          if (firstPreviewDevice) {
-            const currentState = useStore.getState() as AppStore;
-            const hasSelectedPreviewDevice = previewDevices.some(
-              (device) => device.id === currentState.selectedDevice,
-            );
-
-            if (!hasSelectedPreviewDevice) {
-              setSelectedDevice(firstPreviewDevice.id);
-
-              const hasSelectedStreamDevice = previewDevices.some(
-                (device) => device.id === currentState.selectedStreamDevice,
-              );
-              if (!hasSelectedStreamDevice) {
-                setSelectedStreamDevice(firstPreviewDevice.id);
-              }
-            }
-          }
-          addLog("Đã kết nối tất cả thiết bị khả dụng");
-        },
-        {
-          pending: "Đang kết nối tất cả thiết bị...",
-          success: "Đã kết nối tất cả thiết bị khả dụng",
-          error: "Lỗi khi kết nối tất cả thiết bị",
-        },
-      );
+      await toastAction(() => control.connectAll(), {
+        pending: "Dang ket noi tat ca...",
+        success: "Da ket noi tat ca",
+        error: "Khong the ket noi tat ca",
+      });
+      await refreshDevices();
     } catch (error) {
-      const message = `Lỗi khi kết nối tất cả thiết bị: ${getErrorMessage(error, "Không thể kết nối tất cả thiết bị")}`;
-      addLog(message);
+      addLog(getErrorMessage(error, "Khong the ket noi tat ca"));
     } finally {
       setIsConnectingAll(false);
     }
   };
 
-  const handleDisconnectAll = async () => {
+  const handleDisconnectAll = async (): Promise<void> => {
+    if (isConnectingAll || isDisconnectingAll) {
+      return;
+    }
+
+    const targetIds = devices.filter((device) => device.connected).map((device) => device.id);
+    if (targetIds.length === 0) {
+      return;
+    }
+
+    setIsDisconnectingAll(true);
     try {
-      setIsDisconnectingAll(true);
-      await toastAction(
-        async () => {
-          const connectedDevices = devices.filter((device) => device.connected);
-          await control.disconnectAll(
-            connectedDevices.map((device) => device.id),
-          );
-          if (
-            selectedDevice &&
-            connectedDevices.some((device) => device.id === selectedDevice)
-          ) {
-            setSelectedDevice("");
-          }
-          addLog("Đã dừng kết nối tất cả thiết bị");
-        },
-        {
-          pending: "Đang dừng kết nối tất cả thiết bị...",
-          success: "Đã dừng kết nối tất cả thiết bị",
-          error: "Lỗi khi dừng kết nối tất cả thiết bị",
-        },
-      );
+      await toastAction(() => control.disconnectAll(targetIds), {
+        pending: "Dang ngat ket noi tat ca...",
+        success: "Da ngat ket noi tat ca",
+        error: "Khong the ngat ket noi tat ca",
+      });
+      await refreshDevices();
     } catch (error) {
-      const message = `Lỗi khi dừng kết nối tất cả thiết bị: ${getErrorMessage(error, "Không thể dừng kết nối tất cả thiết bị")}`;
-      addLog(message);
+      addLog(getErrorMessage(error, "Khong the ngat ket noi tat ca"));
     } finally {
       setIsDisconnectingAll(false);
     }
   };
 
-  const getAdbStatusTone = (status: string): string => {
-    if (status === "device") {
-      return "bg-emerald-500";
-    }
-    if (status === "offline" || status === "unauthorized") {
-      return "bg-amber-500";
-    }
-    return "bg-rose-500";
-  };
-
-  const getU2StatusTone = (status: string): string => {
-    if (status === "connected") {
-      return "bg-emerald-500";
-    }
-    if (status === "error" || status === "connecting") {
-      return "bg-amber-500";
-    }
-    return "bg-rose-500";
-  };
-
   const canConnect = (device: LegacyDevice): boolean =>
-    device.adb_status === "device";
+    String(device.adb_status).toLowerCase() === "device" && !device.connected;
+
+  const getAdbStatusTone = (status: string): string =>
+    adbStatusTone.get(status.toLowerCase()) ?? "bg-slate-400";
+
+  const getU2StatusTone = (status: string): string =>
+    u2StatusTone.get(status.toLowerCase()) ?? "bg-slate-400";
+
+  useEffect(() => {
+    void refreshDevices();
+  }, []);
 
   return {
     devices,
