@@ -74,6 +74,13 @@ export type OpenVideoFolderResponse = {
   path: string;
 };
 
+export type DownloadVideoResponse = {
+  ok: boolean;
+  platform: string;
+  fileName: string;
+  filePath: string;
+};
+
 export type DuplicateFileEvent = {
   event: "duplicate_file_detected";
   ts: number;

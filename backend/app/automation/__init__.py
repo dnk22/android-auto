@@ -209,6 +209,10 @@ def get_router() -> APIRouter:
     return _runtime.router
 
 
+def get_storage_service():
+    return _runtime._storage_service
+
+
 def set_log_sink(sink: LogSink) -> None:
     _runtime.set_log_sink(sink)
 

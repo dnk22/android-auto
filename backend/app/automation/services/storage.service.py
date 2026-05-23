@@ -43,6 +43,7 @@ class StorageService:
         self._lock = asyncio.Lock()
         self._event_lock = asyncio.Lock()
         self._event_subscribers: set[asyncio.Queue[dict[str, object]]] = set()
+        self._skip_created_once: set[str] = set()
 
     @property
     def storage_path(self) -> Path:
@@ -210,6 +211,49 @@ class StorageService:
 
         return await asyncio.to_thread(_collect)
 
+    async def save_downloaded_video(self, *, preferred_name: str, content: bytes):
+        if self._sheet_service is None:
+            raise RuntimeError("sheet service is not bound")
+
+        candidate = preferred_name.strip()
+        if not candidate:
+            raise ValueError("video name is required")
+        if not self.is_video_file_name(candidate):
+            raise ValueError("only video files are allowed")
+
+        target_dir = await self.get_active_video_folder_path()
+        await asyncio.to_thread(target_dir.mkdir, parents=True, exist_ok=True)
+
+        async with self._lock:
+            final_name = candidate
+            target = target_dir / final_name
+            index = 1
+            created_by_duplicate = False
+            stem = target.stem or "video"
+            suffix = target.suffix or ".mp4"
+
+            while await asyncio.to_thread(target.exists):
+                final_name = f"{stem}-{index}{suffix}"
+                target = target_dir / final_name
+                index += 1
+                created_by_duplicate = True
+
+            await asyncio.to_thread(target.write_bytes, content)
+            self._skip_created_once.add(final_name)
+
+            row = await self._sheet_service.upsert_from_storage(
+                final_name,
+                created_by_duplicate=created_by_duplicate,
+            )
+
+        await self._emit_event(
+            "storage_row_upserted",
+            {
+                "row": row.model_dump(),
+            },
+        )
+        return final_name, target
+
     async def has_file(self, video_name: str) -> bool:
         if self.is_ignored_name(video_name):
             return False
@@ -252,6 +296,10 @@ class StorageService:
         target_dir = await self.get_active_video_folder_path()
 
         async with self._lock:
+            if video_name in self._skip_created_once:
+                self._skip_created_once.discard(video_name)
+                return
+
             created_by_duplicate = False
             final_name = video_name
 

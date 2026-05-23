@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import automation
 from app.core.config import load_settings
 from app.core.state import AppContainer
+from app.services.download.download_service import DownloadService
 from app.services.device.adb_watcher import AdbWatcher
 from app.services.device.controller import DeviceController
 from app.services.device.device_manager import DeviceManager
@@ -72,6 +73,8 @@ def _include_routers(app: FastAPI, container: AppContainer) -> None:
     control_router_mod = _load_module(base / "control.router.py", "control_router")
     stream_router_mod = _load_module(base / "stream.router.py", "stream_router")
     health_router_mod = _load_module(base / "health.router.py", "health_router")
+    download_router_mod = _load_module(base / "download.router.py", "download_router")
+    download_service = DownloadService(storage_service=automation.get_storage_service())
 
     app.include_router(device_router_mod.build_router(container.device_manager))
     app.include_router(control_router_mod.build_router(container.device_manager))
@@ -79,6 +82,7 @@ def _include_routers(app: FastAPI, container: AppContainer) -> None:
         stream_router_mod.build_router(container.device_manager, container.media_client)
     )
     app.include_router(health_router_mod.build_router())
+    app.include_router(download_router_mod.build_router(download_service))
 
 
 container = _build_container()

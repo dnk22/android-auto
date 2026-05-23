@@ -1,6 +1,7 @@
 import type {
   CreateVideoFolderPayload,
   CreateVideoFolderResponse,
+  DownloadVideoResponse,
   OpenVideoFolderResponse,
   ExecutionAutoLogResponse,
   RenameFilePayload,
@@ -127,6 +128,13 @@ export async function deleteFile(
 export async function openStorageFolder(): Promise<OpenVideoFolderResponse> {
   return requestJson<OpenVideoFolderResponse>("/automation/storage/open-folder", {
     method: "POST",
+  });
+}
+
+export async function downloadVideo(url: string): Promise<DownloadVideoResponse> {
+  return requestJson<DownloadVideoResponse>("/download/video", {
+    method: "POST",
+    body: JSON.stringify({ url }),
   });
 }
 

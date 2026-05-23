@@ -4,7 +4,10 @@ import { toast } from "react-toastify";
 
 import { DuplicateModal } from "../../automation/components/DuplicateModal";
 import { VideoPreviewModal } from "../../automation/components/VideoPreviewModal";
-import { buildStorageVideoUrl } from "../../automation/api/automation.api";
+import {
+  buildStorageVideoUrl,
+  downloadVideo,
+} from "../../automation/api/automation.api";
 import {
   useStorage,
   useStorageEvents,
@@ -13,6 +16,7 @@ import { useAutomationStore } from "../../automation/store/automation.store";
 import DebouncedButton from "../../components/common/DebouncedButton";
 import FileItemCard from "./components/FileItemCard";
 import { ConfirmDeleteModal } from "../../components/common/ConfirmDeleteModal";
+import { DownloadVideoModal } from "./components/DownloadVideoModal";
 
 export default function FilesContainer(): JSX.Element {
   const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
@@ -20,6 +24,8 @@ export default function FilesContainer(): JSX.Element {
   const [duplicateDraftName, setDuplicateDraftName] = useState("");
   const [previewVideoName, setPreviewVideoName] = useState<string | null>(null);
   const [deleteTargetName, setDeleteTargetName] = useState<string | null>(null);
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const [isDownloadingVideo, setIsDownloadingVideo] = useState(false);
 
   const {
     rows,
@@ -122,6 +128,42 @@ export default function FilesContainer(): JSX.Element {
     void openFolder();
   };
 
+  const onOpenDownloadModal = () => {
+    setIsDownloadModalOpen(true);
+  };
+
+  const onCloseDownloadModal = () => {
+    if (isDownloadingVideo) {
+      return;
+    }
+    setIsDownloadModalOpen(false);
+  };
+
+  const onDownloadVideo = (rawUrl: string) => {
+    const url = rawUrl.trim();
+    if (!url) {
+      toast.error("URL video là bắt buộc");
+      return;
+    }
+    if (!videoFolderPath) {
+      toast.error("Chưa có folder được cấu hình");
+      return;
+    }
+
+    void (async () => {
+      try {
+        setIsDownloadingVideo(true);
+        const result = await downloadVideo(url);
+        toast.success(`Đã tải video: ${result.fileName}`);
+        setIsDownloadModalOpen(false);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Tải video thất bại");
+      } finally {
+        setIsDownloadingVideo(false);
+      }
+    })();
+  };
+
   return (
     <div className="app-shell h-screen w-full overflow-hidden p-4">
       <div className="mx-auto flex h-full w-full min-h-0 flex-col gap-4">
@@ -137,8 +179,8 @@ export default function FilesContainer(): JSX.Element {
           <div className="flex gap-3">
             <DebouncedButton
               type="button"
-              onClick={onOpenFolder}
-              disabled={!canOpenFolder}
+              onClick={onOpenDownloadModal}
+              disabled={!canOpenFolder || isDownloadingVideo}
               className="inline-flex h-11 items-center gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--panel-soft)] px-4 text-sm font-semibold text-[var(--ink)] shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <DocumentDownload size="18" color="currentColor" variant="Linear" />
@@ -235,6 +277,13 @@ export default function FilesContainer(): JSX.Element {
             }
           })();
         }}
+      />
+
+      <DownloadVideoModal
+        isOpen={isDownloadModalOpen}
+        pending={isDownloadingVideo}
+        onCancel={onCloseDownloadModal}
+        onConfirm={onDownloadVideo}
       />
 
       <VideoPreviewModal
