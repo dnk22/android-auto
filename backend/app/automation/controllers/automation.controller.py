@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import mimetypes
+import shutil
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from app.automation.models.sheet_model import SheetRow
 from app.automation.schemas.automation_schema import (
@@ -46,6 +47,42 @@ def build_router(
         if should_watch:
             # Catch up pre-existing files that were already in the folder before watcher was enabled.
             await storage_service.sync_sheet_from_storage()
+
+    async def _render_storage_thumbnail(file_path: Path) -> bytes:
+        ffmpeg = shutil.which("ffmpeg")
+        if not ffmpeg:
+            raise RuntimeError("ffmpeg is not available on this machine")
+
+        command = [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-ss",
+            "0.2",
+            "-i",
+            str(file_path),
+            "-frames:v",
+            "1",
+            "-vf",
+            "scale=320:-1",
+            "-f",
+            "image2pipe",
+            "-vcodec",
+            "mjpeg",
+            "pipe:1",
+        ]
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await process.communicate()
+        if process.returncode != 0 or not stdout:
+            message = stderr.decode("utf-8", errors="ignore").strip()
+            raise RuntimeError(message or "failed to generate storage thumbnail")
+
+        return stdout
 
     @router.websocket("/ws/automation/events")
     async def automation_events_ws(websocket: WebSocket) -> None:
@@ -230,6 +267,23 @@ def build_router(
 
         media_type, _ = mimetypes.guess_type(file_path.name)
         return FileResponse(path=file_path, media_type=media_type or "application/octet-stream")
+
+    @router.get("/automation/storage/thumbnail/{videoName}")
+    async def storage_thumbnail(videoName: str):
+        try:
+            file_path = await storage_service.resolve_video_path(videoName)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+        if file_path is None:
+            raise HTTPException(status_code=404, detail="file not found")
+
+        try:
+            thumbnail = await _render_storage_thumbnail(file_path)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+        return Response(content=thumbnail, media_type="image/jpeg")
 
     @router.post("/automation/storage/rename", response_model=RenameFileResponse)
     async def rename_storage_file(payload: RenameFileRequest) -> RenameFileResponse:

@@ -61,7 +61,7 @@ export function SheetEditorTable({
           <div className="h-full min-h-0 overflow-auto">
             <table
               className="w-max min-w-full table-fixed border-collapse"
-              style={{ minWidth: tableMinWidth }}
+              // style={{ minWidth: tableMinWidth }}
             >
               <colgroup>
                 {visibleColumns.map((column) => {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import DebouncedButton from "../../../components/common/DebouncedButton";
-import { buildThumbUrl } from "../../../services/mediaStream";
+import { buildStorageThumbUrl } from "../../../automation/api/automation.api";
 import type { SheetRow } from "../../../automation/types/automation.types";
 import { Trash } from "iconsax-reactjs";
 
@@ -34,9 +34,9 @@ export default function FileItemCard({
 
   useEffect(() => {
     setThumbnailFailed(false);
-  }, [row.deviceId]);
+  }, [row.videoName]);
 
-  const thumbnailUrl = row.deviceId ? buildThumbUrl(row.deviceId) : "";
+  const thumbnailUrl = row.videoName ? buildStorageThumbUrl(row.videoName) : "";
 
   return (
     <article className="rounded-2xl border border-[var(--card-border)] bg-[var(--panel)] p-4 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
@@ -57,7 +57,7 @@ export default function FileItemCard({
           )}
         </div>
 
-        <div className="flex items-center justify-between w-full gap-2">
+        <div className="flex items-center w-full gap-2">
           {isEditing ? (
             <input
               value={editingValue}
@@ -81,7 +81,7 @@ export default function FileItemCard({
             <DebouncedButton
               type="button"
               onDoubleClick={() => onStartEdit(row.videoId, row.videoName)}
-              className="block w-full truncate text-left text-sm font-semibold text-[var(--ink)]"
+              className="block w-full truncate text-left text-sm font-semibold text-[var(--ink)] eclipsed max-w-[70%]"
               title="Double click để đổi tên"
             >
               {row.videoName}
@@ -93,7 +93,7 @@ export default function FileItemCard({
               isEditing ? onCancelEdit() : onDelete(row.videoName)
             }
             disabled={pending}
-            className={`flex-1 rounded-lg p-3 text-xs font-semibold disabled:opacity-50 ${"bg-[var(--chip-danger-bg)] text-[var(--chip-danger-fg)]"}`}
+            className={`rounded-lg p-3 text-xs font-semibold disabled:opacity-50 ${"bg-[var(--chip-danger-bg)] text-[var(--chip-danger-fg)]"}`}
           >
             {isEditing ? (
               "Hủy"

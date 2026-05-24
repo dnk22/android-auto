@@ -20,6 +20,10 @@ export function buildStorageVideoUrl(videoName: string): string {
   return `${BACKEND_URL}/automation/storage/video/${encodeURIComponent(videoName)}`;
 }
 
+export function buildStorageThumbUrl(videoName: string): string {
+  return `${BACKEND_URL}/automation/storage/thumbnail/${encodeURIComponent(videoName)}`;
+}
+
 export function getAutomationEventsWsUrl(): string {
   const base =
     typeof window !== "undefined" ? window.location.origin : "http://localhost:8000";
