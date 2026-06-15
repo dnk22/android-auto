@@ -73,7 +73,7 @@ export function SheetActionButtonCell({
               className="h-10 flex-1 rounded-md bg-[var(--accent-2)] px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => onSaveRow(rowIndex)}
             >
-              Save
+              Lưu
             </DebouncedButton>
           ) : null}
 
@@ -99,7 +99,7 @@ export function SheetActionButtonCell({
               className="h-10 flex-1 rounded-md border border-[var(--card-border)] px-4 py-2 text-[var(--ink)]"
               onClick={() => onSetStatusByVideoId(videoId, "idle")}
             >
-              Cancel
+              Hủy
             </DebouncedButton>
           ) : null}
 
@@ -145,7 +145,7 @@ export function SheetActionButtonCell({
                 onSetStatusByVideoId(videoId, "idle");
               }}
             >
-              Retry
+              Thử lại
             </DebouncedButton>
           ) : null}
 

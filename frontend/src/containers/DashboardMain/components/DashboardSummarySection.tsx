@@ -18,7 +18,7 @@ export default function DashboardSummarySection(): JSX.Element {
   } = useSheetEditor();
 
   return (
-    <section className="card fade-in flex h-full h-[50%] flex-col gap-4 overflow-hidden p-5">
+    <section className="card fade-in h-full h-full flex w-[65%] flex-col gap-4 overflow-hidden p-5">
       <SessionToolbar />
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
