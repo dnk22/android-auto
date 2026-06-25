@@ -24,6 +24,7 @@ from app.automation.schemas.automation_schema import (
     UpdateSessionRequest,
     UpdateSheetRowRequest,
 )
+from app.schemas.caption_analyze_schema import CaptionAnalyzeResult
 
 
 def build_router(
@@ -34,6 +35,7 @@ def build_router(
     execution_step_service=None,
     execution_log_service=None,
     watcher_service=None,
+    caption_analyze_service=None,
 ) -> APIRouter:
     router = APIRouter(tags=["automation"])
 
@@ -284,6 +286,26 @@ def build_router(
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
         return Response(content=thumbnail, media_type="image/jpeg")
+
+    @router.post("/automation/storage/{videoName}/analyze-caption", response_model=CaptionAnalyzeResult)
+    async def analyze_storage_caption(videoName: str) -> CaptionAnalyzeResult:
+        if caption_analyze_service is None:
+            raise HTTPException(status_code=500, detail="caption analyze service is not available")
+        try:
+            file_path = await storage_service.resolve_video_path(videoName)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+        if file_path is None:
+            raise HTTPException(status_code=404, detail="file not found")
+
+        size_bytes = await asyncio.to_thread(file_path.stat)
+        return await asyncio.to_thread(
+            caption_analyze_service.analyze,
+            str(file_path),
+            file_path.name,
+            size_bytes.st_size,
+        )
 
     @router.post("/automation/storage/rename", response_model=RenameFileResponse)
     async def rename_storage_file(payload: RenameFileRequest) -> RenameFileResponse:

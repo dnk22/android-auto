@@ -1,6 +1,7 @@
 import type {
   CreateVideoFolderPayload,
   CreateVideoFolderResponse,
+  CaptionAnalyzeResult,
   DownloadVideoResponse,
   OpenVideoFolderResponse,
   ExecutionAutoLogResponse,
@@ -140,6 +141,15 @@ export async function downloadVideo(url: string): Promise<DownloadVideoResponse>
     method: "POST",
     body: JSON.stringify({ url }),
   });
+}
+
+export async function analyzeStorageVideoCaption(videoName: string): Promise<CaptionAnalyzeResult> {
+  return requestJson<CaptionAnalyzeResult>(
+    `/automation/storage/${encodeURIComponent(videoName)}/analyze-caption`,
+    {
+      method: "POST",
+    },
+  );
 }
 
 export async function stopJob(jobId: string): Promise<void> {

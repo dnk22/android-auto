@@ -8,6 +8,7 @@ from pathlib import Path
 from types import ModuleType
 
 from fastapi import APIRouter
+from app.services.caption import CaptionAnalyzeService
 
 
 _BASE_DIR = Path(__file__).resolve().parent
@@ -117,6 +118,7 @@ class AutomationRuntime:
             settings=self._settings,
             logger=self._system_logger,
         )
+        self._caption_analyze_service = CaptionAnalyzeService()
         self._execution_step_service = _execution_step_service_mod.ExecutionStepService(
             db_path=self._settings.storage_dir / "automation.db",
             event_service=self._storage_service,
@@ -170,6 +172,7 @@ class AutomationRuntime:
             self._execution_step_service,
             self._execution_log_service,
             self._watcher,
+            self._caption_analyze_service,
         )
 
     @property
@@ -211,6 +214,10 @@ def get_router() -> APIRouter:
 
 def get_storage_service():
     return _runtime._storage_service
+
+
+def get_caption_analyze_service():
+    return _runtime._caption_analyze_service
 
 
 def set_log_sink(sink: LogSink) -> None:

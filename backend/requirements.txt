@@ -1,8 +1,11 @@
 fastapi
 uvicorn[standard]
+python-multipart
 httpx
 pydantic
 uiautomator2
 adbutils
 watchdog
 aiofiles
+paddleocr
+easyocr

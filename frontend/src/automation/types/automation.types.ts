@@ -81,6 +81,34 @@ export type DownloadVideoResponse = {
   filePath: string;
 };
 
+export type CaptionType =
+  | "soft_subtitle"
+  | "hardcoded_visual_caption"
+  | "speech_caption_possible"
+  | "no_caption_detected"
+  | "unknown";
+
+export type CaptionAnalyzeResult = {
+  file: {
+    filename: string;
+    size_bytes: number;
+    duration_seconds?: number | null;
+    format_name?: string | null;
+  };
+  caption_type: CaptionType;
+  confidence: number;
+  summary: string;
+  has_soft_subtitle: boolean;
+  has_hardcoded_visual_text: boolean;
+  has_audio: boolean;
+  has_speech_likely?: boolean | null;
+  recommendation: {
+    next_step: string;
+    reason: string;
+  };
+  errors: string[];
+};
+
 export type DuplicateFileEvent = {
   event: "duplicate_file_detected";
   ts: number;

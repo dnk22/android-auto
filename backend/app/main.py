@@ -74,6 +74,7 @@ def _include_routers(app: FastAPI, container: AppContainer) -> None:
     stream_router_mod = _load_module(base / "stream.router.py", "stream_router")
     health_router_mod = _load_module(base / "health.router.py", "health_router")
     download_router_mod = _load_module(base / "download.router.py", "download_router")
+    video_caption_router_mod = _load_module(base / "video_caption.router.py", "video_caption_router")
     download_service = DownloadService(storage_service=automation.get_storage_service())
 
     app.include_router(device_router_mod.build_router(container.device_manager))
@@ -83,6 +84,9 @@ def _include_routers(app: FastAPI, container: AppContainer) -> None:
     )
     app.include_router(health_router_mod.build_router())
     app.include_router(download_router_mod.build_router(download_service))
+    app.include_router(
+        video_caption_router_mod.build_router(automation.get_caption_analyze_service())
+    )
 
 
 container = _build_container()
